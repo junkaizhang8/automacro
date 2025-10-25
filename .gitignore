@@ -1,0 +1,6 @@
+# Python
+__pycache__/
+.python-version
+
+# Misc
+.DS_Store
