@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "automacro"
+version = "0.1.0"
+authors = [{ name = "Jun Kai Zhang", email = "junkaizhang8@gmail.com" }]
+description = "Simplify automation of input workflows"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICEN[CS]E*"]
+requires-python = ">=3.9"
+dependencies = ["pynput>=1.8.1"]
