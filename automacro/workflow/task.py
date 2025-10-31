@@ -1,7 +1,7 @@
 import threading
 from time import sleep
 
-from automacro import _logger
+from automacro._utils import _get_logger
 
 
 class _TaskInterrupted(Exception):
@@ -23,7 +23,7 @@ class WorkflowTask:
         """
 
         self.task_name = task_name
-        self._logger = _logger(self.__class__)
+        self._logger = _get_logger(self.__class__)
         self._running = False
         self._interrupt_event = threading.Event()
 

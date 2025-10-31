@@ -1,13 +1,12 @@
-def _logger(cls):
-    """
-    Create a logger for the given class.
+from automacro.core import (
+    CoordinateSpace,
+    get_scale_factor,
+    get_coordinate_space,
+    set_coordinate_space,
+    scale_point,
+    scale_value,
+    scale_box,
+)
 
-    Args:
-        cls (type): The class for which to create the logger.
+from automacro.workflow import Workflow, WorkflowTask, NoOpTask
 
-    Returns:
-        logging.Logger: The logger instance.
-    """
-    import logging
-
-    return logging.getLogger(cls.__module__ + "." + cls.__name__)

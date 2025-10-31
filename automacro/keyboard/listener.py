@@ -2,7 +2,7 @@ from typing import Callable
 
 from pynput.keyboard import Listener
 
-from automacro import _logger
+from automacro._utils import _get_logger
 from automacro.keyboard.key_input import KeyInput
 from automacro.keyboard.modifier_key import get_modifier_key
 
@@ -33,7 +33,7 @@ class KeyListener:
         self._listener = Listener(on_press=self._on_press, on_release=self._on_release)
         self._modifiers = set()
         self._pressed_keys = set()
-        self._logger = _logger(self.__class__)
+        self._logger = _get_logger(self.__class__)
 
     def _on_press(self, key):
         """

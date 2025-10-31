@@ -2,7 +2,7 @@ from typing import Sequence
 import threading
 from time import sleep
 
-from automacro import _logger
+from automacro._utils import _get_logger
 from automacro.workflow.task import WorkflowTask
 
 
@@ -27,7 +27,7 @@ class Workflow:
         self.tasks = tasks
         self.workflow_name = workflow_name
         self.current_task_idx = 0
-        self.logger = _logger(self.__class__)
+        self.logger = _get_logger(self.__class__)
         self._jump_requested = False
         self._locked = False
         self._loop = loop
