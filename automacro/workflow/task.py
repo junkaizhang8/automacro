@@ -1,7 +1,7 @@
 import threading
 from time import sleep
 
-from automacro._utils import _get_logger
+from automacro.utils import _get_logger
 
 
 class _TaskInterrupted(Exception):

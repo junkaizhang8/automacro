@@ -2,7 +2,7 @@ from typing import Callable
 
 from pynput.keyboard import Listener
 
-from automacro._utils import _get_logger
+from automacro.utils import _get_logger
 from automacro.keyboard.key_input import KeyInput
 from automacro.keyboard.modifier_key import get_modifier_key
 
