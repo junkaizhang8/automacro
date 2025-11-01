@@ -1,6 +1,8 @@
 import platform
 import subprocess
 
+import pyautogui as pag
+
 
 _SCALE = 1.0
 
@@ -44,6 +46,17 @@ def get_scale_factor() -> float:
     """
 
     return _SCALE
+
+
+def get_screen_size() -> tuple[int, int]:
+    """
+    Return the screen size in logical coordinates.
+
+    Returns:
+        tuple[int, int]: The (width, height) of the screen.
+    """
+
+    return pag.size()
 
 
 def scale_point(x: int, y: int, inverse: bool = False) -> tuple[int, int]:
