@@ -14,7 +14,11 @@ except ImportError:
 
 
 def locate_image(
-    image_path: str, confidence: float = 0.999, grayscale: bool = False
+    image_path: str,
+    *,
+    confidence: float = 0.999,
+    grayscale: bool = False,
+    region: tuple[int, int, int, int] | None = None,
 ) -> tuple[int, int, int, int] | None:
     """
     Locate an image on the screen.
@@ -26,6 +30,8 @@ def locate_image(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        region (tuple[int, int, int, int] | None): A region (left, top, width,
+        height) to limit the search area on the screen. Default is None.
 
     Returns:
         tuple[int, int, int, int] | None: The (left, top, width, height) of first
@@ -41,8 +47,10 @@ def locate_image(
         raise ValueError("Confidence must be between 0.0 and 1.0")
 
     try:
+        if region:
+            region = scale_box(*region)
         instance = pag.locateOnScreen(
-            image_path, confidence=confidence, grayscale=grayscale
+            image_path, confidence=confidence, grayscale=grayscale, region=region
         )
         return scale_box(*instance, inverse=True) if instance else None
     except pyscreeze.ImageNotFoundException:
@@ -50,7 +58,11 @@ def locate_image(
 
 
 def locate_image_center(
-    image_path: str, confidence: float = 0.999, grayscale: bool = False
+    image_path: str,
+    *,
+    confidence: float = 0.999,
+    grayscale: bool = False,
+    region: tuple[int, int, int, int] | None = None,
 ) -> tuple[int, int] | None:
     """
     Locate the center of an image on the screen.
@@ -62,13 +74,17 @@ def locate_image_center(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        region (tuple[int, int, int, int] | None): A region (left, top, width,
+        height) to limit the search area on the screen. Default is None.
 
     Returns:
         tuple[int, int] | None: The (x, y) coordinates of the center of the first
         found instance of the image, otherwise None if not found on screen.
     """
 
-    instance = locate_image(image_path, confidence=confidence, grayscale=grayscale)
+    instance = locate_image(
+        image_path, confidence=confidence, grayscale=grayscale, region=region
+    )
     if instance:
         return center(*instance)
     else:
@@ -77,9 +93,11 @@ def locate_image_center(
 
 def locate_image_all(
     image_path: str,
+    *,
     confidence: float = 0.999,
     threshold: int = 10,
     grayscale: bool = False,
+    region: tuple[int, int, int, int] | None = None,
 ) -> list[tuple[int, int, int, int]]:
     """
     Locate all instances of an image on the screen.
@@ -93,6 +111,8 @@ def locate_image_all(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        region (tuple[int, int, int, int] | None): A region (left, top, width,
+        height) to limit the search area on the screen. Default is None.
 
     Returns:
         list[tuple[int, int, int, int]]: A list of (left, top, width, height)
@@ -108,8 +128,10 @@ def locate_image_all(
         raise ValueError("Confidence must be between 0.0 and 1.0")
 
     try:
+        if region:
+            region = scale_box(*region)
         instances = pag.locateAllOnScreen(
-            image_path, confidence=confidence, grayscale=grayscale
+            image_path, confidence=confidence, grayscale=grayscale, region=region
         )
         # Rescale instances to logical coordinates
         instances = [scale_box(*instance, inverse=True) for instance in instances]
@@ -136,9 +158,11 @@ def locate_image_all(
 
 def locate_image_center_all(
     image_path: str,
+    *,
     confidence: float = 0.999,
     threshold: int = 10,
     grayscale: bool = False,
+    region: tuple[int, int, int, int] | None = None,
 ) -> list[tuple[int, int]]:
     """
     Locate the centers of all instances of an image on the screen.
@@ -152,6 +176,8 @@ def locate_image_center_all(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        region (tuple[int, int, int, int] | None): A region (left, top, width,
+        height) to limit the search area on the screen. Default is None.
 
     Returns:
         list[tuple[int, int]]: A list of (x, y) coordinates for the center of
@@ -159,6 +185,10 @@ def locate_image_center_all(
     """
 
     instances = locate_image_all(
-        image_path, confidence=confidence, threshold=threshold, grayscale=grayscale
+        image_path,
+        confidence=confidence,
+        threshold=threshold,
+        grayscale=grayscale,
+        region=region,
     )
     return [center(*instance) for instance in instances]
