@@ -20,6 +20,9 @@ class WorkflowTask:
     def __init__(self, task_name: str):
         """
         Initialize the workflow task.
+
+        Args:
+            task_name (str): Name of the task.
         """
 
         self.task_name = task_name
@@ -46,6 +49,9 @@ class WorkflowTask:
 
         Subclasses should override this method to define the behavior executed
         on each cycle of the task's main loop.
+
+        The task will call this method repeatedly until the task is stopped
+        via the `stop` method.
         """
 
         raise NotImplementedError

@@ -7,7 +7,13 @@ from automacro.core import (
     center,
 )
 
-from automacro.workflow import Workflow, WorkflowTask, NoOpTask
+from automacro.workflow import (
+    Workflow,
+    WorkflowTask,
+    NoOpTask,
+    ConditionalTask,
+    WaitUntilTask,
+)
 
 __all__ = [
     "get_scale_factor",
@@ -19,4 +25,6 @@ __all__ = [
     "Workflow",
     "WorkflowTask",
     "NoOpTask",
+    "ConditionalTask",
+    "WaitUntilTask",
 ]

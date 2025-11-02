@@ -3,6 +3,7 @@ import threading
 from time import sleep
 
 from automacro.utils import _get_logger
+from automacro.workflow.conditional import ConditionalTask
 from automacro.workflow.task import WorkflowTask
 
 
@@ -47,6 +48,19 @@ class Workflow:
 
         return f"[Workflow:{self.workflow_name}] {message}"
 
+    def _is_valid_task_index(self, index: int) -> bool:
+        """
+        Check if the given task index is valid.
+
+        Args:
+            index (int): The task index to check.
+
+        Returns:
+            bool: True if the index is valid, False otherwise.
+        """
+
+        return 0 <= index < len(self.tasks)
+
     def _run_workflow(self) -> None:
         """
         Internal method to run the workflow logic.
@@ -61,13 +75,30 @@ class Workflow:
                 task = self.tasks[self.current_task_idx]
                 idx = self.current_task_idx
                 task.execute()
-                # Only move to the next task if neither next nor jump_to was called
+
                 if (
                     self._running
                     and idx == self.current_task_idx
                     and not self._jump_requested
                 ):
-                    self.next()
+                    # If the task is a ConditionalTask, handle branching
+                    if (
+                        isinstance(task, ConditionalTask)
+                        and task.next_task_idx is not None
+                    ):
+                        # If the next task index is invalid, stop the workflow
+                        if not self._is_valid_task_index(task.next_task_idx):
+                            self.logger.error(
+                                self._prefix_log(
+                                    f"Invalid task index from ConditionalTask ({task.task_name}): {task.next_task_idx}"
+                                )
+                            )
+                            self.stop()
+                            break
+                        # Otherwise, jump to the specified task
+                        self.jump_to(task.next_task_idx)
+                    else:
+                        self.next()
 
             # If a jump was requested, reset the flag
             if self._jump_requested:
@@ -151,7 +182,7 @@ class Workflow:
             return
 
         # Invalid index
-        if task_idx < 0 or task_idx >= len(self.tasks):
+        if not self._is_valid_task_index(task_idx):
             self.logger.error(
                 self._prefix_log(f"Invalid task index for jump_to: {task_idx}")
             )
