@@ -25,15 +25,16 @@ class Workflow:
             completion. Default is False.
         """
 
-        self.tasks = tasks
         self.workflow_name = workflow_name
-        self.current_task_idx = 0
-        self.logger = _get_logger(self.__class__)
+        self._logger = _get_logger(self.__class__)
+        self._tasks = tasks
+        self._current_task_idx = 0
         self._jump_requested = False
         self._locked = False
         self._loop = loop
         self._running = False
         self._thread = None
+        self._lock = threading.RLock()
 
     def _prefix_log(self, message: str) -> str:
         """
@@ -59,28 +60,44 @@ class Workflow:
             bool: True if the index is valid, False otherwise.
         """
 
-        return 0 <= index < len(self.tasks)
+        return 0 <= index < len(self._tasks)
 
     def _run_workflow(self) -> None:
         """
         Internal method to run the workflow logic.
         """
 
-        # Reset the current task index
-        self.current_task_idx = 0
-        self._running = True
-        while self._running and self.current_task_idx < len(self.tasks):
-            # Only execute the task if not locked
-            if not self._locked:
-                task = self.tasks[self.current_task_idx]
-                idx = self.current_task_idx
-                task.execute()
+        with self._lock:
+            # Reset the current task index
+            self._current_task_idx = 0
+            self._running = True
 
-                if (
-                    self._running
-                    and idx == self.current_task_idx
-                    and not self._jump_requested
-                ):
+        while True:
+            with self._lock:
+                # Exit if workflow is stopped or index is out of range
+                if not self._running or self._current_task_idx >= len(self._tasks):
+                    break
+
+                # Skip execution if locked
+                if self._locked:
+                    # Jumps are allowed when locked
+                    # So, we still have to reset the flag if a jump was requested
+                    self._jump_requested = False
+                    continue
+
+                task = self._tasks[self._current_task_idx]
+                idx = self._current_task_idx
+
+            # Execute the current task outside the lock to prevent blocking other operations
+            task.execute()
+
+            with self._lock:
+                # If workflow was stopped externally
+                if not self._running:
+                    break
+
+                # If no jump requested and same task still current
+                if idx == self._current_task_idx and not self._jump_requested:
                     # If the task is a ConditionalTask, handle branching
                     if (
                         isinstance(task, ConditionalTask)
@@ -88,7 +105,7 @@ class Workflow:
                     ):
                         # If the next task index is invalid, stop the workflow
                         if not self._is_valid_task_index(task.next_task_idx):
-                            self.logger.error(
+                            self._logger.error(
                                 self._prefix_log(
                                     f"Invalid task index from ConditionalTask ({task.task_name}): {task.next_task_idx}"
                                 )
@@ -100,13 +117,14 @@ class Workflow:
                     else:
                         self.next()
 
-            # If a jump was requested, reset the flag
-            if self._jump_requested:
+                # If a jump was requested, reset the flag
                 self._jump_requested = False
+
             # Small delay to prevent tight loop
             sleep(0.01)
+
         self.stop()
-        self.logger.info(self._prefix_log("Workflow completed"))
+        self._logger.info(self._prefix_log("Workflow completed"))
 
     def execute(self, background: bool = False) -> None:
         """
@@ -117,18 +135,20 @@ class Workflow:
             in a background thread. Default is False.
         """
 
-        if self._running:
-            self.logger.warning(self._prefix_log("Workflow is already running"))
-
-            return
+        with self._lock:
+            if self._running:
+                self._logger.warning(self._prefix_log("Workflow is already running"))
+                return
 
         if background:
-            self.logger.info(self._prefix_log("Starting workflow in background thread"))
+            self._logger.info(
+                self._prefix_log("Starting workflow in background thread")
+            )
 
             self._thread = threading.Thread(target=self._run_workflow, daemon=True)
             self._thread.start()
         else:
-            self.logger.info(self._prefix_log("Starting workflow"))
+            self._logger.info(self._prefix_log("Starting workflow"))
             self._run_workflow()
 
     def stop(self) -> None:
@@ -136,37 +156,39 @@ class Workflow:
         Signal to stop the workflow as soon as possible.
         """
 
-        # Stop the workflow
-        if self._running:
-            self.logger.info(self._prefix_log("Stopping workflow"))
+        with self._lock:
+            if not self._running:
+                return
+            self._logger.info(self._prefix_log("Stopping workflow"))
             self._running = False
             # Stop the current task
-            if self.current_task_idx < len(self.tasks):
-                self.tasks[self.current_task_idx].stop()
+            if self._is_valid_task_index(self._current_task_idx):
+                self._tasks[self._current_task_idx].stop()
 
     def next(self) -> None:
         """
         Signal to move to the next task in the workflow.
         """
 
-        if not self._running:
-            self.logger.warning(self._prefix_log("Workflow is not running"))
+        with self._lock:
+            if not self._running:
+                self._logger.warning(self._prefix_log("Workflow is not running"))
+                return
 
-            return
+            # Stop the current task
+            if self._is_valid_task_index(self._current_task_idx):
+                self._tasks[self._current_task_idx].stop()
+            self._current_task_idx += 1
+            # Loop back to the first task if the end is reached
+            if self._loop:
+                self._current_task_idx %= len(self._tasks)
 
-        # Stop the current task
-        self.tasks[self.current_task_idx].stop()
-        self.current_task_idx += 1
-        # Loop back to the first task if the end is reached
-        if self._loop:
-            self.current_task_idx %= len(self.tasks)
-
-        if self._locked:
-            self.logger.info(
-                self._prefix_log(
-                    f"Currently paused at task: {self.tasks[self.current_task_idx].task_name}"
+            if self._locked:
+                self._logger.info(
+                    self._prefix_log(
+                        f"Currently paused at task: {self._tasks[self._current_task_idx].task_name}"
+                    )
                 )
-            )
 
     def jump_to(self, task_idx: int) -> None:
         """
@@ -176,30 +198,30 @@ class Workflow:
             task_idx (int): Index of the task to jump to.
         """
 
-        if not self._running:
-            self.logger.warning(self._prefix_log("Workflow is not running"))
+        with self._lock:
+            if not self._running:
+                self._logger.warning(self._prefix_log("Workflow is not running"))
+                return
 
-            return
-
-        # Invalid index
-        if not self._is_valid_task_index(task_idx):
-            self.logger.error(
-                self._prefix_log(f"Invalid task index for jump_to: {task_idx}")
-            )
-
-            return
-
-        # Stop the current task
-        self.tasks[self.current_task_idx].stop()
-        self.current_task_idx = task_idx
-        self._jump_requested = True
-
-        if self._locked:
-            self.logger.info(
-                self._prefix_log(
-                    f"Currently paused at task: {self.tasks[self.current_task_idx].task_name}"
+            # Invalid index
+            if not self._is_valid_task_index(task_idx):
+                self._logger.error(
+                    self._prefix_log(f"Invalid task index for jump_to: {task_idx}")
                 )
-            )
+                return
+
+            # Stop the current task
+            if self._is_valid_task_index(self._current_task_idx):
+                self._tasks[self._current_task_idx].stop()
+            self._current_task_idx = task_idx
+            self._jump_requested = True
+
+            if self._locked:
+                self._logger.info(
+                    self._prefix_log(
+                        f"Currently paused at task: {self._tasks[self._current_task_idx].task_name}"
+                    )
+                )
 
     def lock(self) -> None:
         """
@@ -207,16 +229,18 @@ class Workflow:
         are allowed when locked, but the task will not be executed.
         """
 
-        self._locked = True
-        self.logger.info(self._prefix_log("Workflow locked"))
+        with self._lock:
+            self._locked = True
+            self._logger.info(self._prefix_log("Workflow locked"))
 
     def unlock(self) -> None:
         """
         Unlock the workflow to allow task execution.
         """
 
-        self._locked = False
-        self.logger.info(self._prefix_log("Workflow unlocked"))
+        with self._lock:
+            self._locked = False
+            self._logger.info(self._prefix_log("Workflow unlocked"))
 
     def is_running(self) -> bool:
         """
@@ -226,7 +250,8 @@ class Workflow:
             bool: True if the workflow is running, False otherwise.
         """
 
-        return self._running
+        with self._lock:
+            return self._running
 
     def join(self) -> None:
         """

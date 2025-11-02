@@ -59,6 +59,8 @@ class WorkflowTask:
     def execute(self) -> None:
         """
         Run the task repeatedly until stopped.
+
+        Not thread-safe; should be called from a single thread.
         """
 
         if self._running:
