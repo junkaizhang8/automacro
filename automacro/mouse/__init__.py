@@ -1,4 +1,5 @@
-from .controller import MouseButton, MouseController
+from .controller import MouseController
 from .listener import MouseListener
+from .mouse_button import MouseButton
 
-__all__ = ["MouseButton", "MouseController", "MouseListener"]
+__all__ = ["MouseController", "MouseListener", "MouseButton"]

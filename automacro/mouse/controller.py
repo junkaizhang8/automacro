@@ -1,23 +1,7 @@
-from enum import Enum
-
-from pynput.mouse import Button, Controller
+from pynput.mouse import Controller
 
 from automacro.core import get_screen_size
-
-
-class MouseButton(Enum):
-    """
-    An enumeration representing mouse buttons.
-    """
-
-    LEFT = Button.left
-    RIGHT = Button.right
-    MIDDLE = Button.middle
-
-    def __eq__(self, other):
-        if isinstance(other, Button):
-            return self.value == other
-        return super().__eq__(other)
+from automacro.mouse.mouse_button import MouseButton
 
 
 def _clamp_to_screen_bounds(x: int, y: int) -> tuple[int, int]:
@@ -101,7 +85,7 @@ class MouseController:
 
         if not self._controller:
             self._controller = Controller()
-        self._controller.click(button.value, count)
+        self._controller.click(button.to_pynput(), count)
 
     def scroll(self, dx: int, dy: int) -> None:
         """
