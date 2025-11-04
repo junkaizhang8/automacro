@@ -14,14 +14,14 @@ class KeyListener:
 
     def __init__(
         self,
-        callbacks: dict[KeySequence, Callable] | None = None,
+        callbacks: dict[KeySequence, Callable[[], None]] | None = None,
     ):
         """
         Initialize the key listener.
 
         Args:
-            callbacks (dict[KeySequence, Callable] | None): Optional dictionary
-            mapping keys to callback functions. Default is None.
+            callbacks (dict[KeySequence, Callable[[], None] | None): Optional
+            dictionary mapping keys to callback functions. Default is None.
         """
 
         self._callbacks = callbacks.copy() if callbacks else {}

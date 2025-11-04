@@ -61,8 +61,8 @@ class WaitUntilTask(WorkflowTask):
         """
         Args:
             task_name (str): The name of the task.
-            condition (callable): A function that returns True when the waiting
-            should stop.
+            condition (Callable[[], bool]): A function that returns True when
+            the waiting should stop.
             poll_interval (float): The time in seconds to wait between checks.
         """
         super().__init__(task_name)
