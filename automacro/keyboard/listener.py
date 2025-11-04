@@ -3,8 +3,8 @@ from typing import Callable
 from pynput.keyboard import Listener
 
 from automacro.utils import _get_logger
-from automacro.keyboard.key_input import KeyInput
-from automacro.keyboard.modifier_key import get_modifier_key
+from automacro.keyboard.key import ModifierKey
+from automacro.keyboard.key_sequence import KeySequence
 
 
 class KeyListener:
@@ -14,21 +14,19 @@ class KeyListener:
 
     def __init__(
         self,
-        callbacks: dict[KeyInput, Callable] | None = None,
+        callbacks: dict[KeySequence, Callable] | None = None,
     ):
         """
         Initialize the key listener.
 
         Args:
-            callbacks (dict[KeyInput, Callable] | None): Optional dictionary
+            callbacks (dict[KeySequence, Callable] | None): Optional dictionary
             mapping keys to callback functions. Default is None.
         """
 
         self._callbacks = callbacks.copy() if callbacks else {}
         self._repeat_actions = (
-            {key_input: key_input.repeat for key_input in callbacks.keys()}
-            if callbacks
-            else {}
+            {seq: seq.repeat for seq in callbacks.keys()} if callbacks else {}
         )
         self._listener = Listener(on_press=self._on_press, on_release=self._on_release)
         self._modifiers = set()
@@ -43,12 +41,12 @@ class KeyListener:
         if not self._callbacks:
             return
 
-        modifier = get_modifier_key(key)
+        modifier = ModifierKey.from_pynput(key)
         if modifier:
             self._modifiers.add(modifier)
 
         if hasattr(key, "char") and key.char:
-            k = KeyInput(key.char.lower(), self._modifiers)
+            k = KeySequence(key.char.lower(), self._modifiers)
             if k in self._callbacks:
                 if k not in self._pressed_keys:
                     self._callbacks[k]()
@@ -65,7 +63,7 @@ class KeyListener:
         if not self._callbacks:
             return
 
-        modifier = get_modifier_key(key)
+        modifier = ModifierKey.from_pynput(key)
         if modifier:
             for k in list(self._pressed_keys):
                 if modifier in k.modifiers:

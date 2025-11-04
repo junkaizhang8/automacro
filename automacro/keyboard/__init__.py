@@ -1,6 +1,6 @@
 from .controller import KeyController
-from .key_input import KeyInput
+from .key import Key, ModifierKey
+from .key_sequence import KeySequence
 from .listener import KeyListener
-from .modifier_key import ModifierKey
 
-__all__ = ["KeyController", "KeyInput", "KeyListener", "ModifierKey"]
+__all__ = ["KeyController", "KeySequence", "KeyListener", "Key", "ModifierKey"]

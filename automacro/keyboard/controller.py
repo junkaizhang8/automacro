@@ -1,5 +1,7 @@
 from pynput.keyboard import Controller
 
+from automacro.keyboard.key_sequence import KeySequence
+
 
 class KeyController:
     """
@@ -13,41 +15,56 @@ class KeyController:
 
         self._controller = None
 
-    def press(self, key: str) -> None:
+    def press(self, seq: KeySequence) -> None:
         """
-        Press a character key.
+        Press a key with modifiers.
 
         Args:
-            key (str): String representing the character key to press.
+            seq (KeySequence): Key sequence to press.
         """
 
         if not self._controller:
             self._controller = Controller()
-        self._controller.press(key)
 
-    def release(self, key: str) -> None:
+        key, modifiers = seq.to_pynput()
+
+        for modifier in modifiers:
+            self._controller.press(modifier)
+        if key:
+            self._controller.press(key)
+
+    def release(self, seq: KeySequence) -> None:
         """
-        Release a character key.
+        Release a key with modifiers.
 
         Args:
-            key (str): String representing the character key to release.
+            seq (KeySequence): Key sequence to release.
         """
 
         if not self._controller:
             self._controller = Controller()
-        self._controller.release(key)
 
-    def tap(self, key: str) -> None:
+        key, modifiers = seq.to_pynput()
+
+        if key:
+            self._controller.release(key)
+        # The modifiers are released in reversed order
+        for modifier in reversed(list(modifiers)):
+            self._controller.release(modifier)
+
+    def tap(self, seq: KeySequence) -> None:
         """
-        Tap a character key.
+        Tap a key with modifiers.
 
         Args:
-            key (str): String representing the character key to tap.
+            seq (KeySequence): Key sequence to tap.
         """
 
         if not self._controller:
             self._controller = Controller()
-        self._controller.tap(key)
+
+        self.press(seq)
+        self.release(seq)
 
     def type(self, text: str) -> None:
         """
