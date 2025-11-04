@@ -74,10 +74,16 @@ class KeySequence:
         """
 
         mod_str = stringify_modifiers(self.modifiers)
-        key_str = self.key.name if isinstance(self.key, Key) else str(self.key)
+        if isinstance(self.key, Key):
+            key_str = "".join(
+                word.capitalize() for word in self.key.name.lower().split("_")
+            )
+        else:
+            key_str = self.key or ""
 
         if mod_str and key_str:
             return f"<{mod_str}-{key_str}>"
-        if mod_str:
-            return f"<{mod_str}>"
-        return key_str
+        if key_str:
+            return f"<{key_str}>"
+        # If no key is specified, or only modifiers, return empty string
+        return ""
