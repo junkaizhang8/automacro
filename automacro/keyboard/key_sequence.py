@@ -84,6 +84,6 @@ class KeySequence:
         if mod_str and key_str:
             return f"<{mod_str}-{key_str}>"
         if key_str:
-            return f"<{key_str}>"
+            return f"{key_str}"
         # If no key is specified, or only modifiers, return empty string
         return ""
