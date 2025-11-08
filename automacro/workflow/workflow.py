@@ -242,6 +242,28 @@ class Workflow:
             self._locked = False
             self._logger.info(self._prefix_log("Workflow unlocked"))
 
+    def toggle_lock(self) -> None:
+        """
+        Toggle the lock state of the workflow.
+        """
+
+        with self._lock:
+            if self._locked:
+                self.unlock()
+            else:
+                self.lock()
+
+    def is_locked(self) -> bool:
+        """
+        Check if the workflow is locked.
+
+        Returns:
+            bool: True if the workflow is locked, False otherwise.
+        """
+
+        with self._lock:
+            return self._locked
+
     def is_running(self) -> bool:
         """
         Check if the workflow is running.
