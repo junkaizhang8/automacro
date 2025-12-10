@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
 import threading
 
 
@@ -15,7 +15,7 @@ class ThreadPool:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = threading.Lock()
 
-    def submit(self, fn, *args, **kwargs):
+    def submit(self, fn, *args, **kwargs) -> Future:
         """
         Submit a task to the thread pool.
 
