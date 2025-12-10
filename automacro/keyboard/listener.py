@@ -1,4 +1,5 @@
 from typing import Callable
+import itertools
 
 from pynput.keyboard import Listener
 
@@ -24,14 +25,96 @@ class KeyListener:
             dictionary mapping keys to callback functions. Default is None.
         """
 
-        self._callbacks = callbacks.copy() if callbacks else {}
-        self._repeat_actions = (
-            {seq: seq.repeat for seq in callbacks.keys()} if callbacks else {}
-        )
+        self._init_callbacks(callbacks)
+
         self._listener = Listener(on_press=self._on_press, on_release=self._on_release)
         self._modifiers = set()
-        self._pressed_keys = set()
+        self._keys_pressed = set()
         self._logger = _get_logger(self.__class__)
+
+    def _generate_modifier_subsets(self) -> list[set[ModifierKey]]:
+        """
+        Generate all possible subsets of modifier variant keys.
+
+        Returns:
+            list[set[ModifierKey]]: A list of sets, each containing a unique
+            subset of modifier variant keys.
+        """
+
+        mods = {
+            ModifierKey.CTRL_L,
+            ModifierKey.CTRL_R,
+            ModifierKey.ALT_L,
+            ModifierKey.ALT_R,
+            ModifierKey.CMD_L,
+            ModifierKey.CMD_R,
+            ModifierKey.SHIFT_L,
+            ModifierKey.SHIFT_R,
+        }
+
+        subsets = []
+        for r in range(len(mods) + 1):
+            subsets.extend(set(p) for p in itertools.combinations(mods, r))
+        return subsets
+
+    def _normalize_modifiers(
+        self, modifiers: frozenset[ModifierKey]
+    ) -> list[set[ModifierKey]]:
+        """
+        Normalize a given set of modifiers by expanding any general modifier
+        keys into their respective combinations and returning all possible unique
+        combinations between left and right variants of the modifier keys.
+
+        The Cartesian product is computed as P = C x M x D x S, where:
+        - C is the set of CTRL variants (CTRL_L, CTRL_R) after expansion
+        - M is the set of ALT variants (ALT_L, ALT_R) after expansion
+        - D is the set of CMD variants (CMD_L, CMD_R) after expansion
+        - S is the set of SHIFT variants (SHIFT_L, SHIFT_R) after expansion
+
+        Args:
+            modifiers (set[ModifierKey]): The set of modifier keys to
+            normalize.
+
+        Returns:
+            list[set[ModifierKey]]: A list of sets, each containing a unique
+            combination of modifier keys.
+        """
+
+        specific_mods = {mod for mod in modifiers if not mod.is_general()}
+
+        variant_combinations = []
+        for mod in modifiers:
+            if mod.is_general():
+                variant_combinations.append([mod.left(), mod.right()])
+
+        expanded_combinations = list(itertools.product(*variant_combinations))
+
+        mods = []
+        for comb in expanded_combinations:
+            mods.append(set(comb) | specific_mods)
+
+        return mods
+
+    def _init_callbacks(
+        self,
+        callbacks: dict[KeySequence, Callable[[], None]] | None = None,
+    ):
+        if not callbacks:
+            callbacks = {}
+
+        self._callbacks = {}
+
+        # Create a mapping for all possible modifier variant subsets for fast
+        # loopup during key events
+        for subset in self._generate_modifier_subsets():
+            key = KeySequence(None, frozenset(subset))
+            self._callbacks[key] = {}
+
+        for k, cb in callbacks.items():
+            normalized_modifiers = self._normalize_modifiers(k.modifiers)
+            for mod_comb in normalized_modifiers:
+                mod_set = KeySequence(None, frozenset(mod_comb))
+                self._callbacks[mod_set][k] = cb
 
     def _on_press(self, key):
         """
@@ -43,17 +126,30 @@ class KeyListener:
 
         modifier = ModifierKey.from_pynput(key)
         if modifier:
+            # If both sides of the modifier were already pressed but we receive
+            # another press event for one side, we treat it as a release for
+            # that side.
+            # This is a workaround for a pynput bug where pressing both sides
+            # of a modifier key and releasing one side generates a press event
+            # instead of a release event.
+            if modifier in self._modifiers and modifier.opposite() in self._modifiers:
+                self._on_release(key)
+                return
             self._modifiers.add(modifier)
 
         if hasattr(key, "char") and key.char:
-            k = KeySequence(key.char.lower(), self._modifiers)
-            if k in self._callbacks:
-                if k not in self._pressed_keys:
-                    self._callbacks[k]()
-                    self._pressed_keys.add(k)
-                    return
-                if k in self._repeat_actions and self._repeat_actions[k]:
-                    self._callbacks[k]()
+            char = key.char.lower()
+            mod_set = KeySequence(None, frozenset(self._modifiers))
+            for k, cb in self._callbacks[mod_set].items():
+                if k.key == char:
+                    # Call the callback if the key sequence is a repeat action
+                    if k.repeat:
+                        cb()
+                    # If not a repeat action, only call if the key is not
+                    # already pressed
+                    elif not k.repeat and k not in self._keys_pressed:
+                        self._keys_pressed.add(k)
+                        cb()
 
     def _on_release(self, key):
         """
@@ -65,15 +161,23 @@ class KeyListener:
 
         modifier = ModifierKey.from_pynput(key)
         if modifier:
-            for k in list(self._pressed_keys):
+            for k in list(self._keys_pressed):
                 if modifier in k.modifiers:
-                    self._pressed_keys.discard(k)
+                    self._keys_pressed.discard(k)
+                # Check if the opposite side modifier is pressed.
+                # It could be the case that the opposite side is still pressed
+                # so we don't want to discard the key in that case.
+                if (
+                    modifier.opposite() not in self._modifiers
+                    and modifier.general() in k.modifiers
+                ):
+                    self._keys_pressed.discard(k)
             self._modifiers.discard(modifier)
 
         if hasattr(key, "char") and key.char:
-            for k in list(self._pressed_keys):
+            for k in list(self._keys_pressed):
                 if k.key == key.char:
-                    self._pressed_keys.discard(k)
+                    self._keys_pressed.discard(k)
 
     def start(self) -> None:
         """

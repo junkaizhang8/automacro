@@ -13,7 +13,7 @@ class KeySequence:
     def __init__(
         self,
         key: str | Key | None = None,
-        modifiers: set[ModifierKey] | None = None,
+        modifiers: frozenset[ModifierKey] | None = None,
         repeat: bool = False,
     ):
         """
@@ -22,7 +22,7 @@ class KeySequence:
         Args:
             key (str | Key | None): The character key or Key object. Default
             is None.
-            modifiers (set[ModifierKey] | None): Optional set of modifier
+            modifiers (frozenset[ModifierKey] | None): Optional set of modifier
             keys. Default is None.
             repeat (bool): Whether the key input should be treated as a repeat
             action. Default is False.
