@@ -47,7 +47,7 @@ class MouseListener:
         )
         self._thread_pool = thread_pool
 
-    def _execute(self, cb: Callable, *args, **kwargs) -> None:
+    def _execute(self, cb: Callable, *args, **kwargs):
         """
         Execute a callback function in the thread pool if available.
         If no thread pool is available, execute the callback directly.
@@ -62,7 +62,7 @@ class MouseListener:
         else:
             cb(*args, **kwargs)
 
-    def _on_move(self, x: int, y: int) -> None:
+    def _on_move(self, x: int, y: int):
         """
         Callback function for mouse move event.
 
@@ -74,7 +74,7 @@ class MouseListener:
         if self._move_callback:
             self._execute(self._move_callback, x, y)
 
-    def _on_click(self, x: int, y: int, button: Button, pressed: bool) -> None:
+    def _on_click(self, x: int, y: int, button: Button, pressed: bool):
         """
         Callback function for mouse click event.
 
@@ -90,7 +90,7 @@ class MouseListener:
             if mouse_button:
                 self._execute(self._click_callback, x, y, mouse_button, pressed)
 
-    def _on_scroll(self, x: int, y: int, dx: int, dy: int) -> None:
+    def _on_scroll(self, x: int, y: int, dx: int, dy: int):
         """
         Callback function for mouse scroll event.
 
@@ -104,7 +104,7 @@ class MouseListener:
         if self._scroll_callback:
             self._execute(self._scroll_callback, x, y, dx, dy)
 
-    def start(self) -> None:
+    def start(self):
         """
         Start the mouse listener thread.
         """
@@ -112,7 +112,7 @@ class MouseListener:
         if self._listener:
             self._listener.start()
 
-    def stop(self) -> None:
+    def stop(self):
         """
         Stop the mouse listener.
         """
@@ -120,7 +120,7 @@ class MouseListener:
         if self._listener:
             self._listener.stop()
 
-    def join(self) -> None:
+    def join(self):
         """
         Wait for the mouse listener thread to complete.
         """

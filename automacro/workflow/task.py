@@ -43,7 +43,7 @@ class WorkflowTask:
 
         return f"[Task:{self.task_name}] {message}"
 
-    def step(self) -> None:
+    def step(self):
         """
         Perform a single iteration of the task.
 
@@ -56,7 +56,7 @@ class WorkflowTask:
 
         raise NotImplementedError
 
-    def execute(self) -> None:
+    def execute(self):
         """
         Run the task repeatedly until stopped.
 
@@ -83,7 +83,7 @@ class WorkflowTask:
         finally:
             self._running = False
 
-    def stop(self) -> None:
+    def stop(self):
         """
         Signal to stop the task.
         """
@@ -103,7 +103,7 @@ class WorkflowTask:
 
         return self._running
 
-    def wait(self, seconds: float) -> None:
+    def wait(self, seconds: float):
         """
         Wait for a specified number of seconds or until the task is stopped
         (whichever comes first).
@@ -126,7 +126,7 @@ class NoOpTask(WorkflowTask):
     def __init__(self, task_name: str = "No-Op Task"):
         super().__init__(task_name)
 
-    def step(self) -> None:
+    def step(self):
         """
         Do nothing.
         """

@@ -47,7 +47,7 @@ class MouseController:
         x, y = self._controller.position
         return int(x), int(y)
 
-    def move_to(self, x: int, y: int) -> None:
+    def move_to(self, x: int, y: int):
         """
         Move the mouse to the specified (x, y) coordinates.
 
@@ -66,7 +66,7 @@ class MouseController:
         pos = _clamp_to_screen_bounds(x, y)
         self._controller.position = pos
 
-    def move_by(self, dx: int, dy: int) -> None:
+    def move_by(self, dx: int, dy: int):
         """
         Move the mouse by the specified offsets in the x and y directions.
 
@@ -87,7 +87,7 @@ class MouseController:
         pos = _clamp_to_screen_bounds(current_x + dx, current_y + dy)
         self._controller.position = pos
 
-    def click(self, button: MouseButton, count: int = 1) -> None:
+    def click(self, button: MouseButton, count: int = 1):
         """
         Click the specified mouse button a given number of times.
 
@@ -100,7 +100,7 @@ class MouseController:
             self._controller = Controller()
         self._controller.click(button.to_pynput(), count)
 
-    def scroll(self, dx: int, dy: int) -> None:
+    def scroll(self, dx: int, dy: int):
         """
         Scroll the mouse by the specified amounts in the x and y directions.
         """

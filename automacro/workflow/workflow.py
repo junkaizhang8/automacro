@@ -62,7 +62,7 @@ class Workflow:
 
         return 0 <= index < len(self._tasks)
 
-    def _run_workflow(self) -> None:
+    def _run_workflow(self):
         """
         Internal method to run the workflow logic.
         """
@@ -126,7 +126,7 @@ class Workflow:
         self.stop()
         self._logger.info(self._prefix_log("Workflow completed"))
 
-    def execute(self, background: bool = False) -> None:
+    def execute(self, background: bool = False):
         """
         Execute the workflow.
 
@@ -151,7 +151,7 @@ class Workflow:
             self._logger.info(self._prefix_log("Starting workflow"))
             self._run_workflow()
 
-    def stop(self) -> None:
+    def stop(self):
         """
         Signal to stop the workflow as soon as possible.
         """
@@ -165,7 +165,7 @@ class Workflow:
             if self._is_valid_task_index(self._current_task_idx):
                 self._tasks[self._current_task_idx].stop()
 
-    def next(self) -> None:
+    def next(self):
         """
         Signal to move to the next task in the workflow.
         """
@@ -190,7 +190,7 @@ class Workflow:
                     )
                 )
 
-    def jump_to(self, task_idx: int) -> None:
+    def jump_to(self, task_idx: int):
         """
         Jump to a specific task in the workflow.
 
@@ -223,7 +223,7 @@ class Workflow:
                     )
                 )
 
-    def lock(self) -> None:
+    def lock(self):
         """
         Lock the workflow to prevent task execution. Jumps and next calls
         are allowed when locked, but the task will not be executed.
@@ -233,7 +233,7 @@ class Workflow:
             self._locked = True
             self._logger.info(self._prefix_log("Workflow locked"))
 
-    def unlock(self) -> None:
+    def unlock(self):
         """
         Unlock the workflow to allow task execution.
         """
@@ -242,7 +242,7 @@ class Workflow:
             self._locked = False
             self._logger.info(self._prefix_log("Workflow unlocked"))
 
-    def toggle_lock(self) -> None:
+    def toggle_lock(self):
         """
         Toggle the lock state of the workflow.
         """
@@ -275,7 +275,7 @@ class Workflow:
         with self._lock:
             return self._running
 
-    def join(self) -> None:
+    def join(self):
         """
         Wait for the workflow thread to complete.
         """

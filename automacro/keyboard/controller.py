@@ -15,7 +15,7 @@ class KeyController:
 
         self._controller = None
 
-    def press(self, seq: KeySequence) -> None:
+    def press(self, seq: KeySequence):
         """
         Press a key with modifiers.
 
@@ -33,7 +33,7 @@ class KeyController:
         if key:
             self._controller.press(key)
 
-    def release(self, seq: KeySequence) -> None:
+    def release(self, seq: KeySequence):
         """
         Release a key with modifiers.
 
@@ -52,7 +52,7 @@ class KeyController:
         for modifier in reversed(list(modifiers)):
             self._controller.release(modifier)
 
-    def tap(self, seq: KeySequence) -> None:
+    def tap(self, seq: KeySequence):
         """
         Tap a key with modifiers.
 
@@ -66,7 +66,7 @@ class KeyController:
         self.press(seq)
         self.release(seq)
 
-    def type(self, text: str) -> None:
+    def type(self, text: str):
         """
         Type a string of characters.
 

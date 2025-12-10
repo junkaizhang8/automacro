@@ -129,7 +129,7 @@ class KeyListener:
                 mod_set = KeySequence(None, frozenset(mod_comb))
                 self._callbacks[mod_set][k] = cb
 
-    def _execute(self, cb: Callable[[], None]) -> None:
+    def _execute(self, cb: Callable[[], None]):
         """
         Execute a callback function in the thread pool if available.
         If no thread pool is available, execute the callback directly.
@@ -209,7 +209,7 @@ class KeyListener:
                 if k.key == key.char:
                     self._keys_pressed.discard(k)
 
-    def start(self) -> None:
+    def start(self):
         """
         Start the key listener thread.
         """
@@ -217,7 +217,7 @@ class KeyListener:
         if self._listener:
             self._listener.start()
 
-    def stop(self) -> None:
+    def stop(self):
         """
         Stop the key listener.
         """
@@ -225,7 +225,7 @@ class KeyListener:
         if self._listener:
             self._listener.stop()
 
-    def join(self) -> None:
+    def join(self):
         """
         Wait for the key listener thread to complete.
         """

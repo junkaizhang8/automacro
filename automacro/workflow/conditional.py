@@ -34,7 +34,7 @@ class ConditionalTask(WorkflowTask):
         self.else_task_idx = else_task_idx
         self.next_task_idx: int | None = None
 
-    def step(self) -> None:
+    def step(self):
         """
         Evaluate the condition and set the next task index.
         """
@@ -69,7 +69,7 @@ class WaitUntilTask(WorkflowTask):
         self._condition = condition
         self._poll_interval = poll_interval
 
-    def step(self) -> None:
+    def step(self):
         if self._condition():
             self.stop()
         else:
