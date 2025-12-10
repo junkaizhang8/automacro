@@ -4,7 +4,8 @@ import itertools
 from pynput.keyboard import Listener
 
 from automacro.utils import _get_logger
-from automacro.keyboard.key import ModifierKey
+from automacro.core import ThreadPool
+from automacro.keyboard.key import Key, ModifierKey
 from automacro.keyboard.key_sequence import KeySequence
 
 
@@ -16,6 +17,7 @@ class KeyListener:
     def __init__(
         self,
         callbacks: dict[KeySequence, Callable[[], None]] | None = None,
+        thread_pool: ThreadPool | None = None,
     ):
         """
         Initialize the key listener.
@@ -23,6 +25,8 @@ class KeyListener:
         Args:
             callbacks (dict[KeySequence, Callable[[], None] | None): Optional
             dictionary mapping keys to callback functions. Default is None.
+            thread_pool (ThreadPool | None): Optional shared thread pool for
+            executing callbacks. Default is None.
         """
 
         self._init_callbacks(callbacks)
@@ -30,6 +34,7 @@ class KeyListener:
         self._listener = Listener(on_press=self._on_press, on_release=self._on_release)
         self._modifiers = set()
         self._keys_pressed = set()
+        self._thread_pool = thread_pool
         self._logger = _get_logger(self.__class__)
 
     def _generate_modifier_subsets(self) -> list[set[ModifierKey]]:
@@ -99,6 +104,14 @@ class KeyListener:
         self,
         callbacks: dict[KeySequence, Callable[[], None]] | None = None,
     ):
+        """
+        Initialize the callback mapping for key sequences.
+
+        Args:
+            callbacks (dict[KeySequence, Callable[[], None]] | None): Optional
+            callback mapping for key sequences. Default is None.
+        """
+
         if not callbacks:
             callbacks = {}
 
@@ -115,6 +128,20 @@ class KeyListener:
             for mod_comb in normalized_modifiers:
                 mod_set = KeySequence(None, frozenset(mod_comb))
                 self._callbacks[mod_set][k] = cb
+
+    def _execute(self, cb: Callable[[], None]) -> None:
+        """
+        Execute a callback function in the thread pool if available.
+        If no thread pool is available, execute the callback directly.
+
+        Args:
+            cb (Callable[[], None]): The callback function to execute.
+        """
+
+        if self._thread_pool:
+            self._thread_pool.submit(cb)
+        else:
+            cb()
 
     def _on_press(self, key):
         """
@@ -138,18 +165,21 @@ class KeyListener:
             self._modifiers.add(modifier)
 
         if hasattr(key, "char") and key.char:
-            char = key.char.lower()
-            mod_set = KeySequence(None, frozenset(self._modifiers))
-            for k, cb in self._callbacks[mod_set].items():
-                if k.key == char:
-                    # Call the callback if the key sequence is a repeat action
-                    if k.repeat:
-                        cb()
-                    # If not a repeat action, only call if the key is not
-                    # already pressed
-                    elif not k.repeat and k not in self._keys_pressed:
-                        self._keys_pressed.add(k)
-                        cb()
+            seq_key = key.char.lower()
+        else:
+            seq_key = Key.from_pynput(key)
+
+        mod_set = KeySequence(None, frozenset(self._modifiers))
+        for k, cb in self._callbacks[mod_set].items():
+            if k.key == seq_key:
+                # Call the callback if the key sequence is a repeat action
+                if k.repeat:
+                    self._execute(cb)
+                # If not a repeat action, only call if the key is not
+                # already pressed
+                elif not k.repeat and k not in self._keys_pressed:
+                    self._keys_pressed.add(k)
+                    self._execute(cb)
 
     def _on_release(self, key):
         """

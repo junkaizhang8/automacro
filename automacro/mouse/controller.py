@@ -34,17 +34,18 @@ class MouseController:
 
         self._controller = None
 
-    def get_position(self) -> tuple[float, float]:
+    def get_position(self) -> tuple[int, int]:
         """
         Get the current position of the mouse.
 
         Returns:
-            tuple[float, float]: The (x, y) coordinates of the mouse.
+            tuple[int, int]: The (x, y) coordinates of the mouse.
         """
 
         if not self._controller:
             self._controller = Controller()
-        return self._controller.position
+        x, y = self._controller.position
+        return int(x), int(y)
 
     def move_to(self, x: int, y: int) -> None:
         """

@@ -5,6 +5,7 @@ from automacro.core import (
     scale_value,
     scale_box,
     center,
+    ThreadPool,
 )
 
 from automacro.workflow import (
@@ -22,6 +23,7 @@ __all__ = [
     "scale_value",
     "scale_box",
     "center",
+    "ThreadPool",
     "Workflow",
     "WorkflowTask",
     "NoOpTask",

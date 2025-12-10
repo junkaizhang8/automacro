@@ -7,6 +7,8 @@ from .coordinates import (
     center,
 )
 
+from .thread_pool import ThreadPool
+
 __all__ = [
     "get_scale_factor",
     "get_screen_size",
@@ -14,4 +16,5 @@ __all__ = [
     "scale_value",
     "scale_box",
     "center",
+    "ThreadPool",
 ]
