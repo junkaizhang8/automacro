@@ -87,6 +87,30 @@ class MouseController:
         pos = _clamp_to_screen_bounds(current_x + dx, current_y + dy)
         self._controller.position = pos
 
+    def press(self, button: MouseButton):
+        """
+        Hold down the specified mouse button.
+
+        Args:
+            button (MouseButton): Mouse button to hold down.
+        """
+
+        if not self._controller:
+            self._controller = Controller()
+        self._controller.press(button.to_pynput())
+
+    def release(self, button: MouseButton):
+        """
+        Release the specified mouse button.
+
+        Args:
+            button (MouseButton): Mouse button to release.
+        """
+
+        if not self._controller:
+            self._controller = Controller()
+        self._controller.release(button.to_pynput())
+
     def click(self, button: MouseButton, count: int = 1):
         """
         Click the specified mouse button a given number of times.
