@@ -26,7 +26,8 @@ class KeyListener:
             callbacks (dict[KeySequence, Callable[[], None] | None): Optional
             dictionary mapping keys to callback functions. Default is None.
             thread_pool (ThreadPool | None): Optional shared thread pool for
-            executing callbacks. Default is None.
+            executing callbacks. If None, callbacks will be executed in a
+            single dedicated thread. Default is None.
         """
 
         self._init_callbacks(callbacks)
@@ -34,8 +35,19 @@ class KeyListener:
         self._listener = Listener(on_press=self._on_press, on_release=self._on_release)
         self._modifiers = set()
         self._keys_pressed = set()
-        self._thread_pool = thread_pool
+
+        self._owns_thread_pool = thread_pool is None
+        self._thread_pool = thread_pool or ThreadPool(1)
+
         self._logger = _get_logger(self.__class__)
+
+    def __del__(self):
+        try:
+            if self._owns_thread_pool and self._thread_pool:
+                # We don't wait for tasks to complete to avoid blocking
+                self._thread_pool.shutdown(wait=False)
+        except Exception as e:
+            self._logger.error(f"Error shutting down thread pool: {e}")
 
     def _generate_modifier_subsets(self) -> list[set[ModifierKey]]:
         """
@@ -129,20 +141,6 @@ class KeyListener:
                 mod_set = KeySequence(None, frozenset(mod_comb))
                 self._callbacks[mod_set][k] = cb
 
-    def _execute(self, cb: Callable[[], None]):
-        """
-        Execute a callback function in the thread pool if available.
-        If no thread pool is available, execute the callback directly.
-
-        Args:
-            cb (Callable[[], None]): The callback function to execute.
-        """
-
-        if self._thread_pool:
-            self._thread_pool.submit(cb)
-        else:
-            cb()
-
     def _on_press(self, key):
         """
         Callback function for key press event.
@@ -174,12 +172,12 @@ class KeyListener:
             if k.key == seq_key:
                 # Call the callback if the key sequence is a repeat action
                 if k.repeat:
-                    self._execute(cb)
+                    self._thread_pool.submit(cb)
                 # If not a repeat action, only call if the key is not
                 # already pressed
                 elif not k.repeat and k not in self._keys_pressed:
                     self._keys_pressed.add(k)
-                    self._execute(cb)
+                    self._thread_pool.submit(cb)
 
     def _on_release(self, key):
         """
@@ -224,6 +222,13 @@ class KeyListener:
 
         if self._listener:
             self._listener.stop()
+
+        if self._owns_thread_pool and self._thread_pool:
+            try:
+                # We don't wait for tasks to complete to avoid blocking
+                self._thread_pool.shutdown(wait=False)
+            except Exception as e:
+                self._logger.error(f"Error shutting down thread pool: {e}")
 
     def join(self):
         """

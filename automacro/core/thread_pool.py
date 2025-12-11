@@ -5,7 +5,7 @@ import threading
 class ThreadPool:
     def __init__(self, max_workers: int = 4):
         """
-        Initialize the thread pool.
+        Initialize a thread pool.
 
         Args:
             max_workers (int): The maximum number of worker threads.

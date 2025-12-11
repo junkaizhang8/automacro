@@ -2,6 +2,7 @@ from typing import Callable
 
 from pynput.mouse import Button, Listener
 
+from automacro.utils import _get_logger
 from automacro.core import ThreadPool
 from automacro.mouse.mouse_button import MouseButton
 
@@ -33,7 +34,8 @@ class MouseListener:
             Optional callback function for mouse scroll events. The function
             should accept four arguments: x, y, dx, and dy. Default is None.
             thread_pool (ThreadPool | None): Optional shared thread pool for
-            executing callbacks. Default is None.
+            executing callbacks. If None, callbacks will be executed in a
+            dedicated thread. Default is None.
         """
 
         self._move_callback = on_move
@@ -45,22 +47,19 @@ class MouseListener:
             on_click=self._on_click,
             on_scroll=on_scroll,
         )
-        self._thread_pool = thread_pool
 
-    def _execute(self, cb: Callable, *args, **kwargs):
-        """
-        Execute a callback function in the thread pool if available.
-        If no thread pool is available, execute the callback directly.
+        self._owns_thread_pool = thread_pool is None
+        self._thread_pool = thread_pool or ThreadPool(1)
 
-        Args:
-            cb (Callable): The callback function to execute.
-            *args, **kwargs: Arguments for the callback function.
-        """
+        self._logger = _get_logger(self.__class__)
 
-        if self._thread_pool:
-            self._thread_pool.submit(cb, *args, **kwargs)
-        else:
-            cb(*args, **kwargs)
+    def __del__(self):
+        try:
+            if self._owns_thread_pool and self._thread_pool:
+                # We don't wait for tasks to complete to avoid blocking
+                self._thread_pool.shutdown(wait=False)
+        except Exception as e:
+            self._logger.error(f"Error shutting down thread pool: {e}")
 
     def _on_move(self, x: int, y: int):
         """
@@ -72,7 +71,7 @@ class MouseListener:
         """
 
         if self._move_callback:
-            self._execute(self._move_callback, x, y)
+            self._thread_pool.submit(self._move_callback, x, y)
 
     def _on_click(self, x: int, y: int, button: Button, pressed: bool):
         """
@@ -88,7 +87,9 @@ class MouseListener:
         if self._click_callback:
             mouse_button = MouseButton.from_pynput(button)
             if mouse_button:
-                self._execute(self._click_callback, x, y, mouse_button, pressed)
+                self._thread_pool.submit(
+                    self._click_callback, x, y, mouse_button, pressed
+                )
 
     def _on_scroll(self, x: int, y: int, dx: int, dy: int):
         """
@@ -102,7 +103,7 @@ class MouseListener:
         """
 
         if self._scroll_callback:
-            self._execute(self._scroll_callback, x, y, dx, dy)
+            self._thread_pool.submit(self._scroll_callback, x, y, dx, dy)
 
     def start(self):
         """
@@ -119,6 +120,13 @@ class MouseListener:
 
         if self._listener:
             self._listener.stop()
+
+        if self._owns_thread_pool and self._thread_pool:
+            try:
+                # We don't wait for tasks to complete to avoid blocking
+                self._thread_pool.shutdown(wait=False)
+            except Exception as e:
+                self._logger.error(f"Error shutting down thread pool: {e}")
 
     def join(self):
         """
