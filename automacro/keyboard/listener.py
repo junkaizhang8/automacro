@@ -55,7 +55,6 @@ class KeyListener:
 
     def __exit__(self, *_):
         self.stop()
-        print("shut down")
 
     def _generate_modifier_subsets(self) -> list[set[ModifierKey]]:
         """
