@@ -15,6 +15,12 @@ class ThreadPool:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._lock = threading.Lock()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.shutdown()
+
     def submit(self, fn, *args, **kwargs) -> Future:
         """
         Submit a task to the thread pool.
