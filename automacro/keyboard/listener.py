@@ -49,6 +49,14 @@ class KeyListener:
         except Exception as e:
             self._logger.error(f"Error shutting down thread pool: {e}")
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *_):
+        self.stop()
+        print("shut down")
+
     def _generate_modifier_subsets(self) -> list[set[ModifierKey]]:
         """
         Generate all possible subsets of modifier variant keys.

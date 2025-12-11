@@ -61,6 +61,13 @@ class MouseListener:
         except Exception as e:
             self._logger.error(f"Error shutting down thread pool: {e}")
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *_):
+        self.stop()
+
     def _on_move(self, x: int, y: int):
         """
         Callback function for mouse move event.
