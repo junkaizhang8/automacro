@@ -3,7 +3,7 @@ import pyscreeze
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
-from automacro.core import scale_box, center
+from automacro.screen.coordinates import scale_box, center
 
 try:
     import cv2  # noqa: F401

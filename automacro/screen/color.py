@@ -2,7 +2,7 @@ import pyautogui as pag
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
-from automacro.core import scale_point
+from automacro.screen.coordinates import scale_point
 
 
 def get_pixel_color(x: int, y: int) -> tuple[int, int, int]:

@@ -2,7 +2,7 @@ import time
 
 from pynput.mouse import Controller
 
-from automacro.core import get_screen_size
+from automacro.screen.coordinates import get_screen_size
 from automacro.animate import easing, interpolate_sequence
 from automacro.mouse.mouse_button import MouseButton
 
