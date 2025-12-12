@@ -1,6 +1,9 @@
+import time
+
 from pynput.mouse import Controller
 
 from automacro.core import get_screen_size
+from automacro.animate import easing, interpolate_sequence
 from automacro.mouse.mouse_button import MouseButton
 
 
@@ -47,7 +50,47 @@ class MouseController:
         x, y = self._controller.position
         return int(x), int(y)
 
-    def move_to(self, x: int, y: int):
+    def _move_to(self, x: int, y: int, duration: float = 0.0, easing_fn=easing.linear):
+        """
+        Internal method to move the mouse to the specified (x, y) coordinates.
+
+        Args:
+            x (int): x-coordinate to move to.
+            y (int): y-coordinate to move to.
+            duration (float): Duration (in seconds) over which to move the
+            mouse. If 0.0, the movement is instantaneous. Default is 0.0.
+            easing_fn (Callable[[float], float]): Easing function to use for
+            the movement. Default is linear.
+        """
+
+        if not self._controller:
+            self._controller = Controller()
+
+        if duration <= 0.0:
+            self._controller.position = _clamp_to_screen_bounds(x, y)
+            return
+
+        start = tuple(float(coord) for coord in self.get_position())
+        end = tuple(float(coord) for coord in _clamp_to_screen_bounds(x, y))
+
+        fps = 120.0
+        delay = 1.0 / fps
+
+        t0 = time.time()
+
+        while True:
+            t = time.time() - t0
+
+            x_pos, y_pos = interpolate_sequence(start, end, t, duration, easing_fn)
+
+            self._controller.position = (int(x_pos), int(y_pos))
+
+            if t >= duration:
+                break
+
+            time.sleep(delay)
+
+    def move_to(self, x: int, y: int, duration: float = 0.0, easing_fn=easing.linear):
         """
         Move the mouse to the specified (x, y) coordinates.
 
@@ -57,16 +100,15 @@ class MouseController:
         Args:
             x (int): x-coordinate to move to.
             y (int): y-coordinate to move to.
+            duration (float): Duration (in seconds) over which to move the
+            mouse. If 0.0, the movement is instantaneous. Default is 0.0.
+            easing_fn (Callable[[float], float]): Easing function to use for
+            the movement. Default is linear.
         """
 
-        if not self._controller:
-            self._controller = Controller()
+        self._move_to(x, y, duration, easing_fn)
 
-        # Clamp coordinates to screen bounds
-        pos = _clamp_to_screen_bounds(x, y)
-        self._controller.position = pos
-
-    def move_by(self, dx: int, dy: int):
+    def move_by(self, dx: int, dy: int, duration: float = 0.0, easing_fn=easing.linear):
         """
         Move the mouse by the specified offsets in the x and y directions.
 
@@ -76,16 +118,14 @@ class MouseController:
         Args:
             dx (int): Offset in the x direction.
             dy (int): Offset in the y direction.
+            duration (float): Duration (in seconds) over which to move the
+            mouse. If 0.0, the movement is instantaneous. Default is 0.0.
+            easing_fn (Callable[[float], float]): Easing function to use for
+            the movement. Default is linear.
         """
 
-        if not self._controller:
-            self._controller = Controller()
-
-        current_x, current_y = self._controller.position
-
-        # Clamp coordinates to screen bounds
-        pos = _clamp_to_screen_bounds(current_x + dx, current_y + dy)
-        self._controller.position = pos
+        x, y = self.get_position()
+        self._move_to(x + dx, y + dy, duration, easing_fn)
 
     def press(self, button: MouseButton):
         """
