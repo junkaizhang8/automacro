@@ -211,7 +211,7 @@ class KeyListener:
 
         if hasattr(key, "char") and key.char:
             for k in list(self._keys_pressed):
-                if k.key == key.char:
+                if k.key == key.char.lower():
                     self._keys_pressed.discard(k)
 
     def start(self):
