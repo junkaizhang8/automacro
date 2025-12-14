@@ -3,6 +3,7 @@ from typing import Tuple
 from pynput.keyboard import Key as PynputKey
 
 from automacro.keyboard.key import Key, ModifierKey, stringify_modifiers
+from automacro.keyboard.normalize import normalize_char
 
 
 class KeySequence:
@@ -15,17 +16,24 @@ class KeySequence:
         key: str | Key | None = None,
         modifiers: frozenset[ModifierKey] | set[ModifierKey] | None = None,
         repeat: bool = False,
+        ignore_modifiers: bool = False,
     ):
         """
         Initialize the key input.
 
         Args:
-            key (str | Key | None): The character key or Key object. Default
-            is None.
+            key (str | Key | None): The character key or Key object. Any
+            string key must be a single character, and will be converted to
+            its non-shifted equivalent. Default is None.
             modifiers (frozenset[ModifierKey] | set[ModifierKey] | None):
             Optional set of modifier keys. Default is None.
             repeat (bool): Whether the key input should be treated as a repeat
             action. Default is False.
+            ignore_modifiers (bool): Whether to ignore modifier keys. Mainly
+            used for the key listener. If True, as long as the key sequence's
+            modifiers are a subset of the currently pressed modifiers, it will
+            trigger. If False, the modifiers must match exactly. Default is
+            False.
         """
 
         if isinstance(key, str):
@@ -33,11 +41,28 @@ class KeySequence:
                 raise ValueError(
                     f"KeyInput: string key must be a single character, got '{key}'"
                 )
-            key = key.lower()
+            key = normalize_char(key)
 
-        self.key = key
-        self.modifiers = frozenset(modifiers or set())
-        self.repeat = repeat
+        self._key = key
+        self._modifiers = frozenset(modifiers or set())
+        self._repeat = repeat
+        self._ignore_modifiers = ignore_modifiers
+
+    @property
+    def key(self) -> str | Key | None:
+        return self._key
+
+    @property
+    def modifiers(self) -> frozenset[ModifierKey]:
+        return self._modifiers
+
+    @property
+    def repeat(self) -> bool:
+        return self._repeat
+
+    @property
+    def ignore_modifiers(self) -> bool:
+        return self._ignore_modifiers
 
     def to_pynput(self) -> Tuple[str | PynputKey | None, set[PynputKey]]:
         """
@@ -57,13 +82,18 @@ class KeySequence:
     def __eq__(self, other):
         if not isinstance(other, KeySequence):
             return NotImplemented
-        return self.key == other.key and self.modifiers == other.modifiers
+        return (
+            self.key == other.key
+            and self.modifiers == other.modifiers
+            and self.repeat == other.repeat
+            and self.ignore_modifiers == other.ignore_modifiers
+        )
 
     def __hash__(self):
-        return hash((self.key, self.modifiers))
+        return hash((self.key, self.modifiers, self.repeat, self.ignore_modifiers))
 
     def __repr__(self):
-        return f"<KeyInput {self.stringify_key()} repeat={self.repeat}>"
+        return f"<KeyInput {self.stringify_key()} repeat={self.repeat} ignore_modifiers={self.ignore_modifiers}>"
 
     def stringify_key(self) -> str:
         """

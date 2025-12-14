@@ -7,6 +7,7 @@ from automacro.utils import _get_logger
 from automacro.core import ThreadPool
 from automacro.keyboard.key import Key, ModifierKey
 from automacro.keyboard.key_sequence import KeySequence
+from automacro.keyboard.normalize import normalize_char
 
 
 class KeyListener:
@@ -87,7 +88,9 @@ class KeyListener:
         """
         Normalize a given set of modifiers by expanding any general modifier
         keys into their respective combinations and returning all possible unique
-        combinations between left and right variants of the modifier keys.
+        combinations between left and right variants of the modifier keys. The
+        combinations are generated using the Cartesian product of the expanded
+        modifier sets.
 
         The Cartesian product is computed as P = C x M x D x S, where:
         - C is the set of CTRL variants (CTRL_L, CTRL_R) after expansion
@@ -119,6 +122,23 @@ class KeyListener:
 
         return mods
 
+    def _normalize_key(self, key: str | Key | None) -> str | Key | None:
+        """
+        Normalize a key by converting shifted characters to their
+        non-shifted equivalents. If the key is a Key object or None,
+        or not a shifted character, it is returned unchanged.
+
+        Args:
+            key (str | Key | None): The key to normalize.
+
+        Returns:
+            str | Key | None: The normalized key.
+        """
+
+        if isinstance(key, str):
+            return normalize_char(key)
+        return key
+
     def _init_callbacks(
         self,
         callbacks: dict[KeySequence, Callable[[], None]] | None = None,
@@ -134,26 +154,60 @@ class KeyListener:
         if not callbacks:
             callbacks = {}
 
-        self._callbacks = {}
+        self._callbacks_exact = {}
+        self._callbacks_subset = []
 
         # Create a mapping for all possible modifier variant subsets for fast
-        # loopup during key events
+        # loopup during key events (for exact modifier matches)
         for subset in self._generate_modifier_subsets():
             key = KeySequence(None, frozenset(subset))
-            self._callbacks[key] = {}
+            self._callbacks_exact[key] = {}
 
         for k, cb in callbacks.items():
+            # Create a copy of the key sequence to avoid users affecting
+            # internal state by modifying the original object after
+            # registration
+            k_copy = KeySequence(
+                key=k.key,
+                modifiers=k.modifiers,
+                repeat=k.repeat,
+                ignore_modifiers=k.ignore_modifiers,
+            )
+
             normalized_modifiers = self._normalize_modifiers(k.modifiers)
+
             for mod_comb in normalized_modifiers:
                 mod_set = KeySequence(None, frozenset(mod_comb))
-                self._callbacks[mod_set][k] = cb
+
+                if k.ignore_modifiers:
+                    # We store subset matching callbacks in a separate list
+                    self._callbacks_subset.append((k_copy, cb))
+                else:
+                    self._callbacks_exact[mod_set][k_copy] = cb
+
+    def _trigger(self, k: KeySequence, cb: Callable[[], None]):
+        """
+        Trigger the callback for the given key sequence.
+
+        Args:
+            k (KeySequence): The key sequence to trigger.
+            cb (Callable[[], None]): The callback function to execute.
+        """
+
+        # Call the callback if the key sequence is a repeat action
+        if k.repeat:
+            self._thread_pool.submit(cb)
+        # If not a repeat action, only call if the key is not already pressed
+        elif not k.repeat and k not in self._keys_pressed:
+            self._keys_pressed.add(k)
+            self._thread_pool.submit(cb)
 
     def _on_press(self, key):
         """
         Callback function for key press event.
         """
 
-        if not self._callbacks:
+        if not self._callbacks_exact:
             return
 
         modifier = ModifierKey.from_pynput(key)
@@ -170,28 +224,34 @@ class KeyListener:
             self._modifiers.add(modifier)
 
         if hasattr(key, "char") and key.char:
-            seq_key = key.char.lower()
+            seq_key = normalize_char(key.char)
         else:
             seq_key = Key.from_pynput(key)
 
-        mod_set = KeySequence(None, frozenset(self._modifiers))
-        for k, cb in self._callbacks[mod_set].items():
+        pressed_mods = frozenset(self._modifiers)
+        mod_set = KeySequence(None, pressed_mods)
+
+        # Exact modifier match callbacks
+        for k, cb in self._callbacks_exact[mod_set].items():
             if k.key == seq_key:
-                # Call the callback if the key sequence is a repeat action
-                if k.repeat:
-                    self._thread_pool.submit(cb)
-                # If not a repeat action, only call if the key is not
-                # already pressed
-                elif not k.repeat and k not in self._keys_pressed:
-                    self._keys_pressed.add(k)
-                    self._thread_pool.submit(cb)
+                self._trigger(k, cb)
+
+        # Subset modifier match callbacks
+        for k, cb in self._callbacks_subset:
+            if k.key != seq_key:
+                continue
+
+            # Check if the key sequence's modifiers are a subset of the
+            # pressed modifiers
+            if k.modifiers.issubset(pressed_mods):
+                self._trigger(k, cb)
 
     def _on_release(self, key):
         """
         Callback function for key release event.
         """
 
-        if not self._callbacks:
+        if not self._callbacks_exact:
             return
 
         modifier = ModifierKey.from_pynput(key)
@@ -211,7 +271,7 @@ class KeyListener:
 
         if hasattr(key, "char") and key.char:
             for k in list(self._keys_pressed):
-                if k.key == key.char.lower():
+                if k.key == normalize_char(key.char):
                     self._keys_pressed.discard(k)
 
     def start(self):
