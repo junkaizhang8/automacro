@@ -117,10 +117,26 @@ class WorkflowTask:
             raise _TaskInterrupted
 
 
+class CheckpointTask(WorkflowTask):
+    """
+    A checkpoint workflow task that continuously loops without doing anything.
+    Useful for creating pause points in a workflow.
+    """
+
+    def __init__(self, task_name: str = "Checkpoint Task"):
+        super().__init__(task_name)
+
+    def step(self):
+        """
+        Continuously loop without doing anything.
+        """
+
+        pass
+
+
 class NoOpTask(WorkflowTask):
     """
-    A no-op workflow task that does nothing.
-    Can be used as a checkpoint in a workflow.
+    A no-operation workflow task that does nothing and immediately stops.
     """
 
     def __init__(self, task_name: str = "No-Op Task"):
@@ -131,4 +147,4 @@ class NoOpTask(WorkflowTask):
         Do nothing.
         """
 
-        pass
+        self.stop()

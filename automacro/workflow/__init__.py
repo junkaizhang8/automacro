@@ -1,5 +1,12 @@
-from .task import WorkflowTask, NoOpTask
+from .task import WorkflowTask, CheckpointTask, NoOpTask
 from .workflow import Workflow
 from .conditional import ConditionalTask, WaitUntilTask
 
-__all__ = ["WorkflowTask", "NoOpTask", "Workflow", "ConditionalTask", "WaitUntilTask"]
+__all__ = [
+    "WorkflowTask",
+    "CheckpointTask",
+    "NoOpTask",
+    "Workflow",
+    "ConditionalTask",
+    "WaitUntilTask",
+]
