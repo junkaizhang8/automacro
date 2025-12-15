@@ -1,5 +1,4 @@
 import pyautogui as pag
-import pyscreeze
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
@@ -53,7 +52,7 @@ def locate_image(
             image_path, confidence=confidence, grayscale=grayscale, region=region
         )
         return scale_box(*instance, inverse=True) if instance else None
-    except pyscreeze.ImageNotFoundException:
+    except pag.ImageNotFoundException:
         return None
 
 
@@ -152,7 +151,7 @@ def locate_image_all(
                 uniques.append(i)
 
         return uniques
-    except pyscreeze.ImageNotFoundException:
+    except pag.ImageNotFoundException:
         return []
 
 
