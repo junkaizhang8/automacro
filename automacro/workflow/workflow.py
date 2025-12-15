@@ -60,7 +60,7 @@ class Workflow:
             bool: True if the index is valid, False otherwise.
         """
 
-        return 0 <= index < len(self._tasks)
+        return -len(self._tasks) <= index < len(self._tasks)
 
     def _run_workflow(self):
         """
@@ -96,7 +96,7 @@ class Workflow:
                 if not self._running:
                     break
 
-                # If no jump requested and same task still current
+                # If no jump requested and still on the same task
                 if idx == self._current_task_idx and not self._jump_requested:
                     # If the task is a ConditionalTask, handle branching
                     if (

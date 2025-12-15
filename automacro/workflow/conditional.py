@@ -29,20 +29,29 @@ class ConditionalTask(WorkflowTask):
         """
 
         super().__init__(task_name)
-        self.condition = condition
-        self.then_task_idx = then_task_idx
-        self.else_task_idx = else_task_idx
-        self.next_task_idx: int | None = None
+        self._condition = condition
+        self._then_task_idx = then_task_idx
+        self._else_task_idx = else_task_idx
+        self._next_task_idx: int | None = None
+
+    @property
+    def next_task_idx(self) -> int | None:
+        """
+        The index of the next task to jump to after evaluating the condition.
+        It is set to None until the task is executed.
+        """
+
+        return self._next_task_idx
 
     def step(self):
         """
         Evaluate the condition and set the next task index.
         """
 
-        if self.condition():
-            self.next_task_idx = self.then_task_idx
+        if self._condition():
+            self._next_task_idx = self._then_task_idx
         else:
-            self.next_task_idx = self.else_task_idx
+            self._next_task_idx = self._else_task_idx
         # Stop the task after one evaluation
         self.stop()
 
@@ -65,11 +74,16 @@ class WaitUntilTask(WorkflowTask):
             the waiting should stop.
             poll_interval (float): The time in seconds to wait between checks.
         """
+
         super().__init__(task_name)
         self._condition = condition
         self._poll_interval = poll_interval
 
     def step(self):
+        """
+        Evaluate the condition and wait if not met.
+        """
+
         if self._condition():
             self.stop()
         else:
