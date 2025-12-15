@@ -1,3 +1,4 @@
+from typing import Callable
 import time
 
 from pynput.mouse import Controller
@@ -50,7 +51,13 @@ class MouseController:
         x, y = self._controller.position
         return int(x), int(y)
 
-    def _move_to(self, x: int, y: int, duration: float = 0.0, easing_fn=easing.linear):
+    def _move_to(
+        self,
+        x: int,
+        y: int,
+        duration: float = 0.0,
+        easing_fn: Callable[[float], float] = easing.linear,
+    ):
         """
         Internal method to move the mouse to the specified (x, y) coordinates.
 
@@ -90,7 +97,13 @@ class MouseController:
 
             time.sleep(delay)
 
-    def move_to(self, x: int, y: int, duration: float = 0.0, easing_fn=easing.linear):
+    def move_to(
+        self,
+        x: int,
+        y: int,
+        duration: float = 0.0,
+        easing_fn: Callable[[float], float] = easing.linear,
+    ):
         """
         Move the mouse to the specified (x, y) coordinates.
 
@@ -108,7 +121,13 @@ class MouseController:
 
         self._move_to(x, y, duration, easing_fn)
 
-    def move_by(self, dx: int, dy: int, duration: float = 0.0, easing_fn=easing.linear):
+    def move_by(
+        self,
+        dx: int,
+        dy: int,
+        duration: float = 0.0,
+        easing_fn: Callable[[float], float] = easing.linear,
+    ):
         """
         Move the mouse by the specified offsets in the x and y directions.
 
