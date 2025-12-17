@@ -1,10 +1,12 @@
 from typing import Sequence
 import threading
-from time import sleep
+from time import sleep, monotonic
+import uuid
 
 from automacro.utils import _get_logger
 from automacro.workflow.conditional import ConditionalTask
 from automacro.workflow.task import WorkflowTask
+from automacro.workflow.context import WorkflowContext, TaskContext, WorkflowMeta
 
 
 class Workflow:
@@ -19,26 +21,69 @@ class Workflow:
         Initialize the workflow with a list of tasks.
 
         Args:
-            tasks (Sequence[WorkflowTask]): List of WorkflowTask objects.
+            tasks (Sequence[WorkflowTask]): Sequence of WorkflowTask objects.
             workflow_name (str): Name of the workflow.
             loop (bool): Flag to indicate if the workflow should loop after
             completion. Default is False.
         """
 
-        self.workflow_name = workflow_name
         self._logger = _get_logger(self.__class__)
-        self._tasks = tasks
+
+        # Copy the tasks to avoid external modifications
+        self._tasks = tuple(tasks)
+
+        self._workflow_name = workflow_name
+        self._loop = loop
+
+        self._context = None
+
         self._current_task_idx = 0
         self._jump_requested = False
         self._locked = False
-        self._loop = loop
         self._running = False
         self._thread = None
         self._lock = threading.RLock()
 
+    @property
+    def workflow_name(self) -> str:
+        return self._workflow_name
+
+    @property
+    def loop(self) -> bool:
+        return self._loop
+
+    def _get_context(self) -> WorkflowContext:
+        """
+        Guarded method to access the workflow context. Do not directly
+        access the `_context` attribute directly in case it is not initialized.
+
+        Raises:
+            RuntimeError: If the workflow context is not initialized.
+
+        Returns:
+            WorkflowContext: The workflow context.
+        """
+
+        if self._context is None:
+            raise RuntimeError("Workflow context is not initialized")
+        return self._context
+
+    def _get_run_id(self) -> str | None:
+        """
+        Get the current run ID of the workflow.
+
+        Returns:
+            str | None: The run ID if the workflow is running, None otherwise.
+        """
+
+        if self._context is None:
+            return None
+        return self._context.meta.run_id
+
     def _prefix_log(self, message: str) -> str:
         """
-        Prefix log messages with the workflow name.
+        Prefix log messages with the workflow name and the run ID
+        (if available).
 
         Args:
             message (str): The log message.
@@ -47,7 +92,10 @@ class Workflow:
             str: The prefixed log message.
         """
 
-        return f"[Workflow:{self.workflow_name}] {message}"
+        run_id = self._get_run_id()
+        if run_id is not None:
+            return f"[{self._workflow_name}({run_id})] {message}"
+        return f"[{self._workflow_name}] {message}"
 
     def _is_valid_task_index(self, index: int) -> bool:
         """
@@ -62,15 +110,58 @@ class Workflow:
 
         return -len(self._tasks) <= index < len(self._tasks)
 
+    def _init_context(self):
+        """
+        Initialize the workflow context.
+        """
+
+        if self._context is None:
+            self._context = WorkflowContext(
+                meta=WorkflowMeta(
+                    workflow_name=self.workflow_name,
+                    run_id=uuid.uuid4().hex[:8],
+                    started_at=monotonic(),
+                    loop=self.loop,
+                )
+            )
+
+    def _init_run(self):
+        """
+        Initialize a workflow run.
+        """
+
+        with self._lock:
+            # We don't want to modify the state if the workflow is currently
+            # running by accidentally calling this method directly
+            if self._running:
+                return
+
+            self._running = True
+            self._current_task_idx = 0
+            self._jump_requested = False
+            self._locked = False
+
+    def _cleanup_run(self):
+        """
+        Cleanup after a workflow run.
+        """
+
+        with self._lock:
+            self._running = False
+            self._current_task_idx = 0
+            self._jump_requested = False
+            self._locked = False
+
+            self._logger.info(self._prefix_log("Workflow completed"))
+
+            self._context = None
+
     def _run_workflow(self):
         """
         Internal method to run the workflow logic.
         """
 
-        with self._lock:
-            # Reset the current task index
-            self._current_task_idx = 0
-            self._running = True
+        self._init_run()
 
         while True:
             with self._lock:
@@ -89,12 +180,14 @@ class Workflow:
                 idx = self._current_task_idx
 
             # Execute the current task outside the lock to prevent blocking other operations
-            task.execute()
+            task.execute(TaskContext(self._get_context()))
 
             with self._lock:
                 # If workflow was stopped externally
                 if not self._running:
                     break
+
+                self._get_context().runtime.tasks_executed += 1
 
                 # If no jump requested and still on the same task
                 if idx == self._current_task_idx and not self._jump_requested:
@@ -123,8 +216,7 @@ class Workflow:
             # Small delay to prevent tight loop
             sleep(0.01)
 
-        self.stop()
-        self._logger.info(self._prefix_log("Workflow completed"))
+        self._cleanup_run()
 
     def execute(self, background: bool = False):
         """
@@ -139,6 +231,8 @@ class Workflow:
             if self._running:
                 self._logger.warning(self._prefix_log("Workflow is already running"))
                 return
+
+            self._init_context()
 
         if background:
             self._logger.info(
@@ -159,8 +253,10 @@ class Workflow:
         with self._lock:
             if not self._running:
                 return
+
             self._logger.info(self._prefix_log("Stopping workflow"))
             self._running = False
+
             # Stop the current task
             if self._is_valid_task_index(self._current_task_idx):
                 self._tasks[self._current_task_idx].stop()
@@ -178,10 +274,22 @@ class Workflow:
             # Stop the current task
             if self._is_valid_task_index(self._current_task_idx):
                 self._tasks[self._current_task_idx].stop()
+
             self._current_task_idx += 1
-            # Loop back to the first task if the end is reached
-            if self._loop:
-                self._current_task_idx %= len(self._tasks)
+
+            if self.loop and self._current_task_idx >= len(self._tasks):
+                # Loop back to the first task if the end is reached
+                self._current_task_idx = 0
+
+                self._get_context().runtime.iteration += 1
+                # Reset the transient state for the new loop iteration
+                self._get_context().reset_transient()
+
+                self._logger.info(
+                    self._prefix_log(
+                        f"Starting iteration {self._get_context().runtime.iteration}"
+                    )
+                )
 
             if self._locked:
                 self._logger.info(
@@ -190,12 +298,14 @@ class Workflow:
                     )
                 )
 
-    def jump_to(self, task_idx: int):
+    def jump_to(self, task_idx: int, *, reset_transient: bool = False):
         """
         Jump to a specific task in the workflow.
 
         Args:
             task_idx (int): Index of the task to jump to.
+            reset_transient (bool): Whether to reset the transient context.
+            Default is False.
         """
 
         with self._lock:
@@ -213,8 +323,12 @@ class Workflow:
             # Stop the current task
             if self._is_valid_task_index(self._current_task_idx):
                 self._tasks[self._current_task_idx].stop()
+
             self._current_task_idx = task_idx
             self._jump_requested = True
+
+            if reset_transient:
+                self._get_context().reset_transient()
 
             if self._locked:
                 self._logger.info(

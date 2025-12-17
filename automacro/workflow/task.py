@@ -2,6 +2,7 @@ import threading
 from time import sleep
 
 from automacro.utils import _get_logger
+from automacro.workflow.context import TaskContext
 
 
 class _TaskInterrupted(Exception):
@@ -25,14 +26,24 @@ class WorkflowTask:
             task_name (str): Name of the task.
         """
 
-        self.task_name = task_name
         self._logger = _get_logger(self.__class__)
+
+        self._task_name = task_name
+
+        self._workflow_name = None
+        self._workflow_run_id = None
+
         self._running = False
         self._interrupt_event = threading.Event()
 
+    @property
+    def task_name(self) -> str:
+        return self._task_name
+
     def _prefix_log(self, message: str) -> str:
         """
-        Prefix log messages with the task name.
+        Prefix log messages with the workflow name and run ID (if available)
+        and task name.
 
         Args:
             message (str): The log message.
@@ -41,9 +52,11 @@ class WorkflowTask:
             str: The prefixed log message.
         """
 
-        return f"[Task:{self.task_name}] {message}"
+        if self._workflow_name is None or self._workflow_run_id is None:
+            return f"[{self.task_name}] {message}"
+        return f"[{self._workflow_name}({self._workflow_run_id}):{self.task_name}] {message}"
 
-    def step(self):
+    def step(self, ctx: TaskContext):
         """
         Perform a single iteration of the task.
 
@@ -52,36 +65,47 @@ class WorkflowTask:
 
         The task will call this method repeatedly until the task is stopped
         via the `stop` method.
+
+        Args:
+            ctx (TaskContext): The task context.
         """
 
         raise NotImplementedError
 
-    def execute(self):
+    def execute(self, ctx: TaskContext):
         """
         Run the task repeatedly until stopped.
 
         Not thread-safe; should be called from a single thread.
+
+        Args:
+            ctx (TaskContext): The task context.
         """
 
         if self._running:
             self._logger.info(self._prefix_log("Task is already running"))
             return
 
-        self._logger.info(self._prefix_log("Starting task"))
+        self._workflow_name = ctx.meta.workflow_name
+        self._workflow_run_id = ctx.meta.run_id
         self._running = True
+
+        self._logger.info(self._prefix_log("Starting task"))
         self._interrupt_event.clear()
 
         try:
             while self._running:
                 # We wrap step in a try-except to catch interruptions
                 try:
-                    self.step()
+                    self.step(ctx)
                 except _TaskInterrupted:
                     break
                 # Small delay to prevent tight loop
                 sleep(0.01)
         finally:
             self._running = False
+            self._workflow_name = None
+            self._workflow_run_id = None
 
     def stop(self):
         """
@@ -126,7 +150,7 @@ class CheckpointTask(WorkflowTask):
     def __init__(self, task_name: str = "Checkpoint Task"):
         super().__init__(task_name)
 
-    def step(self):
+    def step(self, ctx: TaskContext):
         """
         Continuously loop without doing anything.
         """
@@ -142,7 +166,7 @@ class NoOpTask(WorkflowTask):
     def __init__(self, task_name: str = "No-Op Task"):
         super().__init__(task_name)
 
-    def step(self):
+    def step(self, ctx: TaskContext):
         """
         Do nothing.
         """

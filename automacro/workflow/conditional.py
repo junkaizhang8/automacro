@@ -1,6 +1,7 @@
 from typing import Callable
 
 from automacro.workflow.task import WorkflowTask
+from automacro.workflow.context import TaskContext
 
 
 class ConditionalTask(WorkflowTask):
@@ -11,7 +12,7 @@ class ConditionalTask(WorkflowTask):
     def __init__(
         self,
         task_name: str,
-        condition: Callable[[], bool],
+        condition: Callable[[TaskContext], bool],
         then_task_idx: int,
         else_task_idx: int | None = None,
     ):
@@ -20,7 +21,8 @@ class ConditionalTask(WorkflowTask):
 
         Args:
             task_name (str): The name of the task.
-            condition (Callable[[], bool]): A function that returns a boolean.
+            condition (Callable[[TaskContext], bool]): A function that
+            accepts a TaskContext and returns True or False.
             then_task_idx (int): The index of the task to jump to if the
             condition is true.
             else_task_idx (int | None): The index of the task to jump to if the
@@ -43,12 +45,12 @@ class ConditionalTask(WorkflowTask):
 
         return self._next_task_idx
 
-    def step(self):
+    def step(self, ctx: TaskContext):
         """
         Evaluate the condition and set the next task index.
         """
 
-        if self._condition():
+        if self._condition(ctx):
             self._next_task_idx = self._then_task_idx
         else:
             self._next_task_idx = self._else_task_idx
@@ -64,14 +66,14 @@ class WaitUntilTask(WorkflowTask):
     def __init__(
         self,
         task_name: str,
-        condition: Callable[[], bool],
+        condition: Callable[[TaskContext], bool],
         poll_interval: float = 0.1,
     ):
         """
         Args:
             task_name (str): The name of the task.
-            condition (Callable[[], bool]): A function that returns True when
-            the waiting should stop.
+            condition (Callable[[TaskContext], bool]): A function that accepts
+            a TaskContext and returns True when the wait should end.
             poll_interval (float): The time in seconds to wait between checks.
         """
 
@@ -79,12 +81,12 @@ class WaitUntilTask(WorkflowTask):
         self._condition = condition
         self._poll_interval = poll_interval
 
-    def step(self):
+    def step(self, ctx: TaskContext):
         """
         Evaluate the condition and wait if not met.
         """
 
-        if self._condition():
+        if self._condition(ctx):
             self.stop()
         else:
             self.wait(self._poll_interval)
