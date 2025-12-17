@@ -114,7 +114,7 @@ class KeyListener:
             if mod.is_general():
                 variant_combinations.append([mod.left(), mod.right()])
 
-        expanded_combinations = list(itertools.product(*variant_combinations))
+        expanded_combinations = tuple(itertools.product(*variant_combinations))
 
         mods = []
         for comb in expanded_combinations:
