@@ -72,6 +72,8 @@ class Workflow:
         Guarded method to access the workflow context. Do not directly
         access the `_context` attribute directly in case it is not initialized.
 
+        NOTE: This method must be called while holding the workflow lock.
+
         Raises:
             RuntimeError: If the workflow context is not initialized.
 
@@ -87,6 +89,8 @@ class Workflow:
         """
         Get the current run ID of the workflow.
 
+        NOTE: This method must be called while holding the workflow lock.
+
         Returns:
             str | None: The run ID if the workflow is running, None otherwise.
         """
@@ -99,6 +103,8 @@ class Workflow:
         """
         Prefix log messages with the workflow name and the run ID
         (if available).
+
+        NOTE: This method must be called while holding the workflow lock.
 
         Args:
             message (str): The log message.
@@ -184,9 +190,9 @@ class Workflow:
 
             self._context = None
 
-    def _run_workflow(self):
+    def _run_impl(self):
         """
-        Internal method to run the workflow logic.
+        Internal method for handling the workflow run loop.
         """
 
         self._init_run()
@@ -217,7 +223,7 @@ class Workflow:
             # Execute the current task outside the lock to prevent blocking
             # other operations
             self._hooks.on_task_start(task, TaskContext(ctx))
-            task.execute(TaskContext(ctx))
+            task.run(TaskContext(ctx))
             self._hooks.on_task_end(task, TaskContext(ctx))
 
             with self._lock:
@@ -257,13 +263,9 @@ class Workflow:
         self._hooks.on_workflow_end(WorkflowHookContext(ctx))
         self._cleanup_run()
 
-    def execute(self, background: bool = False):
+    def run(self):
         """
-        Execute the workflow.
-
-        Args:
-            background (bool): Flag to indicate if the workflow should run
-            in a background thread. Default is False.
+        Run the workflow in the current thread.
         """
 
         with self._lock:
@@ -280,17 +282,35 @@ class Workflow:
                 return
 
             self._init_context()
+            self._logger.info(self._prefix_log("Starting workflow"))
 
-        if background:
+        self._run_impl()
+
+    def start(self):
+        """
+        Run the workflow in a separate thread.
+        """
+
+        with self._lock:
+            if self._running:
+                self._logger.warning(self._prefix_log("Workflow is already running"))
+                return
+
+            if not self._running and self._pending_cleanup:
+                self._logger.warning(
+                    self._prefix_log(
+                        "Previous workflow run is still cleaning up. Cannot start a new run"
+                    )
+                )
+                return
+
+            self._init_context()
             self._logger.info(
-                self._prefix_log("Starting workflow in background thread")
+                self._prefix_log("Starting workflow in a separate thread")
             )
 
-            self._thread = threading.Thread(target=self._run_workflow, daemon=True)
-            self._thread.start()
-        else:
-            self._logger.info(self._prefix_log("Starting workflow"))
-            self._run_workflow()
+        self._thread = threading.Thread(target=self._run_impl)
+        self._thread.start()
 
     def stop(self):
         """

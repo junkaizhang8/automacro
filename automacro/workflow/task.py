@@ -72,7 +72,7 @@ class WorkflowTask:
 
         raise NotImplementedError
 
-    def execute(self, ctx: TaskContext):
+    def run(self, ctx: TaskContext):
         """
         Run the task repeatedly until stopped.
 
