@@ -59,9 +59,9 @@ class WorkflowContext:
         self.transient.clear()
 
 
-class WorkflowRuntimeView:
+class RuntimeView:
     """
-    A read-only view of the runtime information of a workflow run.
+    A read-only view of the runtime state of a workflow run.
     """
 
     __slots__ = ("_ctx",)
@@ -82,10 +82,14 @@ class WorkflowRuntimeView:
         return self._ctx.runtime.iteration == 0
 
 
-class TaskContext:
+class _ExecutionContextView:
     """
-    Context information for a workflow run exposed to tasks.
+    Highly restricted view of the workflow execution context.
+
+    An internal class not intended for public use.
     """
+
+    __slots__ = ("_ctx", "_runtime_view")
 
     def __init__(self, ctx: WorkflowContext):
         """
@@ -96,14 +100,14 @@ class TaskContext:
         """
 
         self._ctx = ctx
-        self._runtime_view = WorkflowRuntimeView(ctx)
+        self._runtime_view = RuntimeView(ctx)
 
     @property
     def meta(self) -> WorkflowMeta:
         return self._ctx.meta
 
     @property
-    def runtime(self) -> WorkflowRuntimeView:
+    def runtime(self) -> RuntimeView:
         return self._runtime_view
 
     @property
@@ -113,3 +117,25 @@ class TaskContext:
     @property
     def transient(self) -> MutableMapping[str, Any]:
         return self._ctx.transient
+
+
+class TaskContext(_ExecutionContextView):
+    """
+    Context information exposed to each workflow task during execution.
+
+    Tasks may observe workflow metadata and runtime state, and read/write
+    persistent and transient data.
+    """
+
+    pass
+
+
+class WorkflowHookContext(_ExecutionContextView):
+    """
+    Context information exposed to workflow hooks during execution.
+
+    Hooks may observe workflow metadata and runtime state, and read/write
+    persistent and transient data.
+    """
+
+    pass

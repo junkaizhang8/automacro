@@ -6,7 +6,13 @@ import uuid
 from automacro.utils import _get_logger
 from automacro.workflow.conditional import ConditionalTask
 from automacro.workflow.task import WorkflowTask
-from automacro.workflow.context import WorkflowContext, TaskContext, WorkflowMeta
+from automacro.workflow.context import (
+    WorkflowContext,
+    TaskContext,
+    WorkflowHookContext,
+    WorkflowMeta,
+)
+from automacro.workflow.hooks import WorkflowHooks
 
 
 class Workflow:
@@ -15,7 +21,12 @@ class Workflow:
     """
 
     def __init__(
-        self, tasks: Sequence[WorkflowTask], workflow_name: str, loop: bool = False
+        self,
+        tasks: Sequence[WorkflowTask],
+        workflow_name: str,
+        *,
+        loop: bool = False,
+        hooks: WorkflowHooks | None = None,
     ):
         """
         Initialize the workflow with a list of tasks.
@@ -25,6 +36,7 @@ class Workflow:
             workflow_name (str): Name of the workflow.
             loop (bool): Flag to indicate if the workflow should loop after
             completion. Default is False.
+            hooks (WorkflowHooks | None): Optional workflow hooks.
         """
 
         self._logger = _get_logger(self.__class__)
@@ -34,6 +46,7 @@ class Workflow:
 
         self._workflow_name = workflow_name
         self._loop = loop
+        self._hooks = hooks or WorkflowHooks()
 
         self._context = None
 
@@ -41,6 +54,8 @@ class Workflow:
         self._jump_requested = False
         self._locked = False
         self._running = False
+        self._pending_cleanup = False
+
         self._thread = None
         self._lock = threading.RLock()
 
@@ -136,6 +151,16 @@ class Workflow:
             if self._running:
                 return
 
+            # We also don't want to start a new run if the previous run was
+            # stopped but cleanup is still pending
+            if self._pending_cleanup:
+                self._logger.warning(
+                    self._prefix_log(
+                        "Previous workflow run is still cleaning up. Cannot start a new run"
+                    )
+                )
+                return
+
             self._running = True
             self._current_task_idx = 0
             self._jump_requested = False
@@ -147,6 +172,9 @@ class Workflow:
         """
 
         with self._lock:
+            if not self._pending_cleanup:
+                return
+
             self._running = False
             self._current_task_idx = 0
             self._jump_requested = False
@@ -162,6 +190,13 @@ class Workflow:
         """
 
         self._init_run()
+
+        with self._lock:
+            ctx = self._get_context()
+            self._logger.info(self._prefix_log("Starting iteration 0"))
+
+        self._hooks.on_workflow_start(WorkflowHookContext(self._get_context()))
+        self._hooks.on_iteration_start(0, WorkflowHookContext(ctx))
 
         while True:
             with self._lock:
@@ -179,15 +214,18 @@ class Workflow:
                 task = self._tasks[self._current_task_idx]
                 idx = self._current_task_idx
 
-            # Execute the current task outside the lock to prevent blocking other operations
-            task.execute(TaskContext(self._get_context()))
+            # Execute the current task outside the lock to prevent blocking
+            # other operations
+            self._hooks.on_task_start(task, TaskContext(ctx))
+            task.execute(TaskContext(ctx))
+            self._hooks.on_task_end(task, TaskContext(ctx))
 
             with self._lock:
                 # If workflow was stopped externally
                 if not self._running:
                     break
 
-                self._get_context().runtime.tasks_executed += 1
+                ctx.runtime.tasks_executed += 1
 
                 # If no jump requested and still on the same task
                 if idx == self._current_task_idx and not self._jump_requested:
@@ -216,6 +254,7 @@ class Workflow:
             # Small delay to prevent tight loop
             sleep(0.01)
 
+        self._hooks.on_workflow_end(WorkflowHookContext(ctx))
         self._cleanup_run()
 
     def execute(self, background: bool = False):
@@ -230,6 +269,14 @@ class Workflow:
         with self._lock:
             if self._running:
                 self._logger.warning(self._prefix_log("Workflow is already running"))
+                return
+
+            if not self._running and self._pending_cleanup:
+                self._logger.warning(
+                    self._prefix_log(
+                        "Previous workflow run is still cleaning up. Cannot start a new run"
+                    )
+                )
                 return
 
             self._init_context()
@@ -256,6 +303,7 @@ class Workflow:
 
             self._logger.info(self._prefix_log("Stopping workflow"))
             self._running = False
+            self._pending_cleanup = True
 
             # Stop the current task
             if self._is_valid_task_index(self._current_task_idx):
@@ -277,19 +325,28 @@ class Workflow:
 
             self._current_task_idx += 1
 
-            if self.loop and self._current_task_idx >= len(self._tasks):
-                # Loop back to the first task if the end is reached
-                self._current_task_idx = 0
+            ctx = self._get_context()
 
-                self._get_context().runtime.iteration += 1
-                # Reset the transient state for the new loop iteration
-                self._get_context().reset_transient()
-
-                self._logger.info(
-                    self._prefix_log(
-                        f"Starting iteration {self._get_context().runtime.iteration}"
-                    )
+            if self._current_task_idx >= len(self._tasks):
+                self._hooks.on_iteration_end(
+                    ctx.runtime.iteration,
+                    WorkflowHookContext(ctx),
                 )
+                if self._loop:
+                    # Loop back to the first task if the end is reached
+                    self._current_task_idx = 0
+
+                    ctx.runtime.iteration += 1
+                    # Reset the transient state for the new loop iteration
+                    ctx.reset_transient()
+
+                    self._logger.info(
+                        self._prefix_log(f"Starting iteration {ctx.runtime.iteration}")
+                    )
+
+                    self._hooks.on_iteration_start(
+                        ctx.runtime.iteration, WorkflowHookContext(ctx)
+                    )
 
             if self._locked:
                 self._logger.info(
