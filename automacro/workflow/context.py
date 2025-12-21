@@ -29,6 +29,11 @@ class WorkflowRuntime:
 class WorkflowContext:
     """
     Workflow-owned context information of a workflow run.
+
+    This class is intended for internal use within a workflow. It should not
+    be used directly by tasks or hooks. Instead, tasks and hooks should use
+    the `TaskContext` and `WorkflowHookContext` classes, which provide
+    a restricted view of the workflow context.
     """
 
     # Metadata (read-only)
