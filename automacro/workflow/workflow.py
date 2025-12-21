@@ -416,33 +416,79 @@ class Workflow:
 
     def lock(self):
         """
-        Lock the workflow to prevent task execution. Jumps and next calls
-        are allowed when locked, but the task will not be executed.
+        Lock the workflow to prevent task execution. Calls to `next` and
+        `jump_to` are allowed when locked, but the task will not be executed.
+
+        Some hooks may still be invoked while the workflow is locked. These
+        hooks are:
+        - `on_iteration_start`
+        - `on_iteration_end`
         """
 
-        with self._lock:
-            self._locked = True
-            self._logger.info(self._prefix_log("Workflow locked"))
+        self._lock.acquire()
+
+        if self._locked:
+            return self._lock.release()
+
+        ctx = self._get_context()
+
+        self._locked = True
+        ctx.runtime.workflow_locked = True
+        self._logger.info(self._prefix_log("Workflow locked"))
+
+        # We release the lock early to prevent other threads from waiting
+        # too long while the hook is being executed
+        self._lock.release()
+
+        self._hooks.on_lock(WorkflowHookContext(ctx))
 
     def unlock(self):
         """
         Unlock the workflow to allow task execution.
         """
 
-        with self._lock:
-            self._locked = False
-            self._logger.info(self._prefix_log("Workflow unlocked"))
+        self._lock.acquire()
+
+        if not self._locked:
+            return self._lock.release()
+
+        ctx = self._get_context()
+
+        self._locked = False
+        ctx.runtime.workflow_locked = False
+        self._logger.info(self._prefix_log("Workflow unlocked"))
+
+        # We release the lock early to prevent other threads from waiting
+        # too long while the hook is being executed
+        self._lock.release()
+
+        self._hooks.on_unlock(WorkflowHookContext(ctx))
 
     def toggle_lock(self):
         """
         Toggle the lock state of the workflow.
         """
 
-        with self._lock:
-            if self._locked:
-                self.unlock()
-            else:
-                self.lock()
+        self._lock.acquire()
+
+        ctx = self._get_context()
+
+        if self._locked:
+            self._locked = False
+            ctx.runtime.workflow_locked = False
+            self._logger.info(self._prefix_log("Workflow unlocked"))
+
+            self._lock.release()
+
+            self._hooks.on_unlock(WorkflowHookContext(ctx))
+        else:
+            self._locked = True
+            ctx.runtime.workflow_locked = True
+            self._logger.info(self._prefix_log("Workflow locked"))
+
+            self._lock.release()
+
+            self._hooks.on_lock(WorkflowHookContext(ctx))
 
     def is_locked(self) -> bool:
         """

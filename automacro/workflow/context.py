@@ -22,6 +22,7 @@ class WorkflowRuntime:
 
     iteration: int = 0
     tasks_executed: int = 0
+    workflow_locked: bool = False
 
 
 @dataclass
@@ -80,6 +81,10 @@ class RuntimeView:
     @property
     def is_first_iteration(self) -> bool:
         return self._ctx.runtime.iteration == 0
+
+    @property
+    def workflow_locked(self) -> bool:
+        return self._ctx.runtime.workflow_locked
 
 
 class _ExecutionContextView:
