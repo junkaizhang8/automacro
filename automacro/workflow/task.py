@@ -83,7 +83,7 @@ class WorkflowTask:
         """
 
         if self._running:
-            self._logger.info(self._prefix_log("Task is already running"))
+            self._logger.warning(self._prefix_log("Task is already running"))
             return
 
         self._workflow_name = ctx.meta.workflow_name
