@@ -11,7 +11,7 @@ class ConditionalTask(WorkflowTask):
 
     def __init__(
         self,
-        task_name: str,
+        name: str,
         condition: Callable[[TaskContext], bool],
         then_task_idx: int,
         else_task_idx: int | None = None,
@@ -20,7 +20,7 @@ class ConditionalTask(WorkflowTask):
         Initialize the conditional task.
 
         Args:
-            task_name (str): The name of the task.
+            name (str): The name of the task.
             condition (Callable[[TaskContext], bool]): A function that
             accepts a TaskContext and returns True or False.
             then_task_idx (int): The index of the task to jump to if the
@@ -30,7 +30,7 @@ class ConditionalTask(WorkflowTask):
             task in sequence.
         """
 
-        super().__init__(task_name)
+        super().__init__(name)
         self._condition = condition
         self._then_task_idx = then_task_idx
         self._else_task_idx = else_task_idx
@@ -65,19 +65,19 @@ class WaitUntilTask(WorkflowTask):
 
     def __init__(
         self,
-        task_name: str,
+        name: str,
         condition: Callable[[TaskContext], bool],
         poll_interval: float = 0.1,
     ):
         """
         Args:
-            task_name (str): The name of the task.
+            name (str): The name of the task.
             condition (Callable[[TaskContext], bool]): A function that accepts
             a TaskContext and returns True when the wait should end.
             poll_interval (float): The time in seconds to wait between checks.
         """
 
-        super().__init__(task_name)
+        super().__init__(name)
         self._condition = condition
         self._poll_interval = poll_interval
 

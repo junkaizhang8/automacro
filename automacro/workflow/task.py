@@ -150,6 +150,13 @@ class CheckpointTask(WorkflowTask):
     """
 
     def __init__(self, name: str = "Checkpoint Task"):
+        """
+        Initialize the checkpoint task.
+
+        Args:
+            name (str): The name of the task. Default is "Checkpoint Task".
+        """
+
         super().__init__(name)
 
     def step(self, ctx: TaskContext):
@@ -166,6 +173,13 @@ class NoOpTask(WorkflowTask):
     """
 
     def __init__(self, name: str = "No-Op Task"):
+        """
+        Initialize the no-op task.
+
+        Args:
+            name (str): The name of the task. Default is "No-Op Task".
+        """
+
         super().__init__(name)
 
     def step(self, ctx: TaskContext):
