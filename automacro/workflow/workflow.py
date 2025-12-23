@@ -23,7 +23,7 @@ class Workflow:
     def __init__(
         self,
         tasks: Sequence[WorkflowTask],
-        workflow_name: str,
+        name: str,
         *,
         loop: bool = False,
         hooks: WorkflowHooks | None = None,
@@ -33,7 +33,7 @@ class Workflow:
 
         Args:
             tasks (Sequence[WorkflowTask]): Sequence of WorkflowTask objects.
-            workflow_name (str): Name of the workflow.
+            name (str): Name of the workflow.
             loop (bool): Flag to indicate if the workflow should loop after
             completion. Default is False.
             hooks (WorkflowHooks | None): Optional workflow hooks.
@@ -44,7 +44,7 @@ class Workflow:
         # Copy the tasks to avoid external modifications
         self._tasks = tuple(tasks)
 
-        self._workflow_name = workflow_name
+        self._name = name
         self._loop = loop
         self._hooks = hooks or WorkflowHooks()
 
@@ -60,8 +60,8 @@ class Workflow:
         self._lock = threading.RLock()
 
     @property
-    def workflow_name(self) -> str:
-        return self._workflow_name
+    def name(self) -> str:
+        return self._name
 
     @property
     def loop(self) -> bool:
@@ -115,8 +115,8 @@ class Workflow:
 
         run_id = self._get_run_id()
         if run_id is not None:
-            return f"[{self._workflow_name}({run_id})] {message}"
-        return f"[{self._workflow_name}] {message}"
+            return f"[{self._name}({run_id})] {message}"
+        return f"[{self._name}] {message}"
 
     def _is_valid_task_index(self, index: int) -> bool:
         """
@@ -139,7 +139,7 @@ class Workflow:
         if self._context is None:
             self._context = WorkflowContext(
                 meta=WorkflowMeta(
-                    workflow_name=self.workflow_name,
+                    workflow_name=self._name,
                     run_id=uuid.uuid4().hex[:8],
                     started_at=monotonic(),
                     loop=self.loop,
@@ -244,7 +244,7 @@ class Workflow:
                         if not self._is_valid_task_index(task.next_task_idx):
                             self._logger.error(
                                 self._prefix_log(
-                                    f"Invalid task index from ConditionalTask ({task.task_name}): {task.next_task_idx}"
+                                    f"Invalid task index from ConditionalTask ({task.name}): {task.next_task_idx}"
                                 )
                             )
                             self.stop()
@@ -371,7 +371,7 @@ class Workflow:
             if self._locked:
                 self._logger.info(
                     self._prefix_log(
-                        f"Currently paused at task: {self._tasks[self._current_task_idx].task_name}"
+                        f"Currently paused at task: {self._tasks[self._current_task_idx].name}"
                     )
                 )
 
@@ -410,7 +410,7 @@ class Workflow:
             if self._locked:
                 self._logger.info(
                     self._prefix_log(
-                        f"Currently paused at task: {self._tasks[self._current_task_idx].task_name}"
+                        f"Currently paused at task: {self._tasks[self._current_task_idx].name}"
                     )
                 )
 

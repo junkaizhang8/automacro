@@ -18,17 +18,17 @@ class WorkflowTask:
     A workflow task that runs on repeat until stopped.
     """
 
-    def __init__(self, task_name: str):
+    def __init__(self, name: str):
         """
         Initialize the workflow task.
 
         Args:
-            task_name (str): Name of the task.
+            name (str): Name of the task.
         """
 
         self._logger = _get_logger(self.__class__)
 
-        self._task_name = task_name
+        self._name = name
 
         self._workflow_name = None
         self._workflow_run_id = None
@@ -37,8 +37,8 @@ class WorkflowTask:
         self._interrupt_event = threading.Event()
 
     @property
-    def task_name(self) -> str:
-        return self._task_name
+    def name(self) -> str:
+        return self._name
 
     def _prefix_log(self, message: str) -> str:
         """
@@ -53,8 +53,10 @@ class WorkflowTask:
         """
 
         if self._workflow_name is None or self._workflow_run_id is None:
-            return f"[{self.task_name}] {message}"
-        return f"[{self._workflow_name}({self._workflow_run_id}):{self.task_name}] {message}"
+            return f"[{self._name}] {message}"
+        return (
+            f"[{self._workflow_name}({self._workflow_run_id}):{self._name}] {message}"
+        )
 
     def step(self, ctx: TaskContext):
         """
@@ -147,8 +149,8 @@ class CheckpointTask(WorkflowTask):
     Useful for creating pause points in a workflow.
     """
 
-    def __init__(self, task_name: str = "Checkpoint Task"):
-        super().__init__(task_name)
+    def __init__(self, name: str = "Checkpoint Task"):
+        super().__init__(name)
 
     def step(self, ctx: TaskContext):
         """
@@ -163,8 +165,8 @@ class NoOpTask(WorkflowTask):
     A no-operation workflow task that does nothing and immediately stops.
     """
 
-    def __init__(self, task_name: str = "No-Op Task"):
-        super().__init__(task_name)
+    def __init__(self, name: str = "No-Op Task"):
+        super().__init__(name)
 
     def step(self, ctx: TaskContext):
         """
