@@ -264,6 +264,56 @@ class Workflow:
         hooks.on_workflow_end(WorkflowHookContext(ctx))
         self._cleanup_run()
 
+    def _on_iteration_end(self):
+        """
+        Handle the end of the current iteration. This also means the previous
+        task must be stopped before calling this method.
+
+        NOTE: This method must be called while holding the workflow lock. This
+        is required to ensure thread safety. However, this also means that
+        long-running hooks may block other operations on the workflow.
+        """
+
+        if not self._running:
+            return
+
+        ctx = self._get_context()
+        runtime = ctx.runtime
+        hooks = self._hooks
+
+        hooks.on_iteration_end(ctx.runtime.iteration, WorkflowHookContext(ctx))
+
+        prev = (
+            self._tasks[self._current_task_idx]
+            if self._is_valid_task_index(self._current_task_idx)
+            else None
+        )
+
+        if not self._loop:
+            runtime.prev_task_idx = self._current_task_idx
+            runtime.current_task_idx = None
+            # Set to an invalid index to indicate completion
+            self._current_task_idx = len(self._tasks)
+
+            hooks.on_current_task_change(prev, None, WorkflowHookContext(ctx))
+            return
+
+        # Loop back to the first task if the end is reached
+        runtime.prev_task_idx = self._current_task_idx
+        runtime.current_task_idx = 0
+        self._current_task_idx = 0
+
+        runtime.iteration += 1
+        ctx.reset_transient()
+
+        self._logger.info(
+            self._prefix_log(f"Starting iteration {ctx.runtime.iteration}")
+        )
+
+        hooks.on_iteration_start(runtime.iteration, WorkflowHookContext(ctx))
+
+        hooks.on_current_task_change(prev, self._tasks[0], WorkflowHookContext(ctx))
+
     def run(self):
         """
         Run the workflow in the current thread.
@@ -341,6 +391,7 @@ class Workflow:
                 return
 
             ctx = self._get_context()
+            runtime = ctx.runtime
             hooks = self._hooks
 
             prev = None
@@ -355,50 +406,16 @@ class Workflow:
 
             # We are at the end of the task list
             if next_idx >= len(self._tasks) or prev_idx == -1:
-                hooks.on_iteration_end(
-                    ctx.runtime.iteration,
-                    WorkflowHookContext(ctx),
-                )
+                return self._on_iteration_end()
 
-                if not self._loop:
-                    ctx.runtime.prev_task_idx = prev_idx
-                    ctx.runtime.current_task_idx = None
-                    # Set to an invalid index to indicate completion
-                    self._current_task_idx = len(self._tasks)
-                    hooks.on_current_task_change(prev, None, WorkflowHookContext(ctx))
-                    return
+            # Otherwise, move to the next task
+            runtime.prev_task_idx = prev_idx
+            runtime.current_task_idx = next_idx
+            self._current_task_idx = next_idx
 
-                # Loop back to the first task if the end is reached
-                ctx.runtime.prev_task_idx = prev_idx
-                ctx.runtime.current_task_idx = 0
-                self._current_task_idx = 0
-
-                ctx.runtime.iteration += 1
-                # Reset the transient state for the new loop iteration
-                ctx.reset_transient()
-
-                self._logger.info(
-                    self._prefix_log(f"Starting iteration {ctx.runtime.iteration}")
-                )
-
-                hooks.on_iteration_start(
-                    ctx.runtime.iteration, WorkflowHookContext(ctx)
-                )
-            else:
-                ctx.runtime.prev_task_idx = prev_idx
-                ctx.runtime.current_task_idx = next_idx
-                self._current_task_idx = next_idx
-
-            if self._locked:
-                self._logger.info(
-                    self._prefix_log(
-                        f"Currently paused at task: {self._tasks[self._current_task_idx].name}"
-                    )
-                )
-
-            current = self._tasks[self._current_task_idx]
-
-            hooks.on_current_task_change(prev, current, WorkflowHookContext(ctx))
+            hooks.on_current_task_change(
+                prev, self._tasks[self._current_task_idx], WorkflowHookContext(ctx)
+            )
 
     def jump_to(self, task_idx: int, *, reset_transient: bool = False):
         """
@@ -447,6 +464,22 @@ class Workflow:
             self._hooks.on_current_task_change(
                 prev, current, WorkflowHookContext(self._get_context())
             )
+
+    def end_iteration(self):
+        """
+        End the current iteration and, if looping is enabled, jump to the
+        first task.
+        """
+
+        with self._lock:
+            if not self._running:
+                return
+
+            # Stop the current task
+            if self._is_valid_task_index(self._current_task_idx):
+                self._tasks[self._current_task_idx].stop()
+
+            self._on_iteration_end()
 
     def lock(self):
         """
