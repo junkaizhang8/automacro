@@ -130,3 +130,30 @@ class WorkflowHooks:
         """
 
         pass
+
+    def on_current_task_change(
+        self,
+        prev: WorkflowTask | None,
+        current: WorkflowTask | None,
+        ctx: WorkflowHookContext,
+    ):
+        """
+        Called when the current task changes.
+
+        This hook is invoked whenever the workflow's current task
+        pointer changes, regardless of whether the workflow is locked.
+        This can occur when:
+        - `next` method is called
+        - `jump_to` method is called
+        - Iteration wraps (looping enabled)
+        - The workflow reaches the end (looping disabled)
+
+        Args:
+            prev (WorkflowTask | None): The previous current task, or None
+            if there was no previous task.
+            current (WorkflowTask | None): The current task, or None if the
+            workflow is finished.
+            ctx (WorkflowHookContext): The context of the workflow run.
+        """
+
+        pass

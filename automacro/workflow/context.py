@@ -20,9 +20,11 @@ class WorkflowRuntime:
     Runtime information of a workflow run.
     """
 
+    current_task_idx: int | None = 0
+    prev_task_idx: int | None = None
     iteration: int = 0
     tasks_executed: int = 0
-    workflow_locked: bool = False
+    is_locked: bool = False
 
 
 @dataclass
@@ -76,6 +78,14 @@ class RuntimeView:
         self._ctx = ctx
 
     @property
+    def current_task_idx(self) -> int | None:
+        return self._ctx.runtime.current_task_idx
+
+    @property
+    def prev_task_idx(self) -> int | None:
+        return self._ctx.runtime.prev_task_idx
+
+    @property
     def iteration(self) -> int:
         return self._ctx.runtime.iteration
 
@@ -88,8 +98,8 @@ class RuntimeView:
         return self._ctx.runtime.iteration == 0
 
     @property
-    def workflow_locked(self) -> bool:
-        return self._ctx.runtime.workflow_locked
+    def is_locked(self) -> bool:
+        return self._ctx.runtime.is_locked
 
 
 class _ExecutionContextView:
