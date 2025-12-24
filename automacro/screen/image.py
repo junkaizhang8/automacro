@@ -39,7 +39,7 @@ def locate_image(
 
     if not _has_cv:
         raise NotImplementedError(
-            "This function is only available if OpenCV is installed."
+            "This function is only available if OpenCV is installed"
         )
 
     if confidence < 0.0 or confidence > 1.0:
@@ -120,7 +120,7 @@ def locate_image_all(
 
     if not _has_cv:
         raise NotImplementedError(
-            "This function is only available if OpenCV is installed."
+            "This function is only available if OpenCV is installed"
         )
 
     if confidence < 0.0 or confidence > 1.0:
