@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any, MutableMapping
 
+from automacro.workflow.state import WorkflowState
+
 
 @dataclass(frozen=True)
 class WorkflowMeta:
@@ -24,7 +26,6 @@ class WorkflowRuntime:
     prev_task_idx: int | None = None
     iteration: int = 0
     tasks_executed: int = 0
-    is_locked: bool = False
 
 
 @dataclass
@@ -97,10 +98,6 @@ class RuntimeView:
     def is_first_iteration(self) -> bool:
         return self._ctx.runtime.iteration == 0
 
-    @property
-    def is_locked(self) -> bool:
-        return self._ctx.runtime.is_locked
-
 
 class _ExecutionContextView:
     """
@@ -109,9 +106,9 @@ class _ExecutionContextView:
     An internal class not intended for public use.
     """
 
-    __slots__ = ("_ctx", "_runtime_view")
+    __slots__ = ("_ctx", "_runtime_view", "_state")
 
-    def __init__(self, ctx: WorkflowContext):
+    def __init__(self, ctx: WorkflowContext, state: WorkflowState):
         """
         Initialize the TaskContext.
 
@@ -120,6 +117,7 @@ class _ExecutionContextView:
         """
 
         self._ctx = ctx
+        self._state = state
         self._runtime_view = RuntimeView(ctx)
 
     @property
@@ -137,6 +135,14 @@ class _ExecutionContextView:
     @property
     def transient(self) -> MutableMapping[str, Any]:
         return self._ctx.transient
+
+    @property
+    def state(self) -> WorkflowState:
+        return self._state
+
+    @property
+    def is_paused(self) -> bool:
+        return self._state == WorkflowState.PAUSED
 
 
 class TaskContext(_ExecutionContextView):

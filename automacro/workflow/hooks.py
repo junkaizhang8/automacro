@@ -9,7 +9,30 @@ class WorkflowHooks:
     Subclasses may override any of the hook methods to implement custom
     behavior at various points in the workflow execution lifecycle.
 
-    All hook methods are no-ops by default.
+    All hook methods are no-op by default.
+
+    The following hooks (with signatures) are available:
+    - `on_workflow_start(self, ctx: WorkflowHookContext)`
+    - `on_workflow_end(self, ctx: WorkflowHookContext)`
+    - `on_iteration_start(self, iteration: int, ctx: WorkflowHookContext)`
+    - `on_iteration_end(self, iteration: int, ctx: WorkflowHookContext)`
+    - `on_task_start(self, task: WorkflowTask, ctx: TaskContext)`
+    - `on_task_end(self, task: WorkflowTask, ctx: TaskContext)`
+    - `on_current_task_change(self, prev: WorkflowTask | None, current: WorkflowTask | None, ctx: WorkflowHookContext)`
+    - `on_pause(self, ctx: WorkflowHookContext)`
+    - `on_resume(self, ctx: WorkflowHookContext)`
+
+    Attempting to call these workflow control operators inside hooks will have
+    no effect:
+    - `run`
+    - `start`
+    - `stop`
+    - `next`
+    - `jump_to`
+    - `end_iteration`
+    - `pause`
+    - `resume`
+    - `toggle`
     """
 
     def on_workflow_start(self, ctx: WorkflowHookContext):
@@ -79,7 +102,7 @@ class WorkflowHooks:
         """
         Called before each task starts execution.
 
-        This hook is invoked immediately before a task's `execute` method
+        This hook is invoked immediately before a task's `run` method
         is called.
 
         Args:
@@ -93,40 +116,12 @@ class WorkflowHooks:
         """
         Called after each task completes execution.
 
-        This hook is invoked immediately after a task's `execute` method
+        This hook is invoked immediately after a task's `run` method
         terminates.
 
         Args:
             task (WorkflowTask): The task that has just completed execution.
             ctx (TaskContext): The context of the workflow run.
-        """
-
-        pass
-
-    def on_lock(self, ctx: WorkflowHookContext):
-        """
-        Called when the workflow locks.
-
-        This hook is invoked after the workflow enters a locked state.
-        A workflow may enter a locked state using the `lock` method
-        or the `toggle_lock` method.
-
-        Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
-        """
-
-        pass
-
-    def on_unlock(self, ctx: WorkflowHookContext):
-        """
-        Called when the workflow unlocks.
-
-        This hook is invoked after the workflow exits a locked state.
-        A workflow may exit a locked state using the `unlock` method
-        or the `toggle_lock` method.
-
-        Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
         """
 
         pass
@@ -153,6 +148,34 @@ class WorkflowHooks:
             if there was no previous task.
             current (WorkflowTask | None): The current task, or None if the
             workflow is finished.
+            ctx (WorkflowHookContext): The context of the workflow run.
+        """
+
+        pass
+
+    def on_pause(self, ctx: WorkflowHookContext):
+        """
+        Called when the workflow pauses.
+
+        This hook is invoked after the workflow enters a paused state.
+        A workflow may enter a paused state using the `pause` method
+        or the `toggle` method.
+
+        Args:
+            ctx (WorkflowHookContext): The context of the workflow run.
+        """
+
+        pass
+
+    def on_resume(self, ctx: WorkflowHookContext):
+        """
+        Called when the workflow resumes execution.
+
+        This hook is invoked after the workflow exits a paused state.
+        A workflow may exit a paused state using the `resume` method
+        or the `toggle` method.
+
+        Args:
             ctx (WorkflowHookContext): The context of the workflow run.
         """
 
