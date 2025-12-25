@@ -1,5 +1,4 @@
 import threading
-from time import sleep
 
 from automacro.utils import _get_logger
 from automacro.workflow.context import TaskContext
@@ -33,8 +32,8 @@ class WorkflowTask:
         self._workflow_name = None
         self._workflow_run_id = None
 
-        self._running = False
-        self._interrupt_event = threading.Event()
+        self._stop_event = threading.Event()
+        self._stop_event.set()
 
     @property
     def name(self) -> str:
@@ -62,8 +61,8 @@ class WorkflowTask:
         """
         Perform a single iteration of the task.
 
-        Subclasses should override this method to define the behavior executed
-        on each cycle of the task's main loop.
+        Subclasses should override this method to define the behavior for
+        each step of the task's execution loop.
 
         The task will call this method repeatedly until the task is stopped
         via the `stop` method.
@@ -78,34 +77,30 @@ class WorkflowTask:
         """
         Run the task repeatedly until stopped.
 
-        Not thread-safe; should be called from a single thread.
-
         Args:
             ctx (TaskContext): The task context.
         """
 
-        if self._running:
+        if not self._stop_event.is_set():
             self._logger.warning(self._prefix_log("Task is already running"))
             return
 
         self._workflow_name = ctx.meta.workflow_name
         self._workflow_run_id = ctx.meta.run_id
-        self._running = True
 
         self._logger.info(self._prefix_log("Starting task"))
-        self._interrupt_event.clear()
+        self._stop_event.clear()
 
         try:
-            while self._running:
+            while self.is_running():
                 # We wrap step in a try-except to catch interruptions
                 try:
                     self.step(ctx)
                 except _TaskInterrupted:
                     break
-                # Small delay to prevent tight loop
-                sleep(0.01)
+                self._stop_event.wait(0)
         finally:
-            self._running = False
+            self._stop_event.set()
             self._workflow_name = None
             self._workflow_run_id = None
 
@@ -114,10 +109,9 @@ class WorkflowTask:
         Signal to stop the task.
         """
 
-        if self._running:
+        if self.is_running():
             self._logger.info(self._prefix_log("Stopping task"))
-            self._running = False
-            self._interrupt_event.set()
+            self._stop_event.set()
 
     def is_running(self) -> bool:
         """
@@ -127,7 +121,7 @@ class WorkflowTask:
             bool: True if the workflow is running, False otherwise.
         """
 
-        return self._running
+        return not self._stop_event.is_set()
 
     def wait(self, seconds: float):
         """
@@ -138,8 +132,8 @@ class WorkflowTask:
             seconds (float): Number of seconds to wait.
         """
 
-        interrupted = self._interrupt_event.wait(timeout=seconds)
-        if interrupted or not self._running:
+        interrupted = self._stop_event.wait(timeout=seconds)
+        if interrupted:
             raise _TaskInterrupted
 
 
