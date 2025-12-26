@@ -7,7 +7,7 @@ from automacro.utils import _get_logger
 from automacro.core import ThreadPool
 from automacro.keyboard.key import Key, ModifierKey
 from automacro.keyboard.key_sequence import KeySequence
-from automacro.keyboard.normalize import normalize_char
+from automacro.keyboard.char import unshift_char
 
 
 class KeyListener:
@@ -122,23 +122,6 @@ class KeyListener:
 
         return mods
 
-    def _normalize_key(self, key: str | Key | None) -> str | Key | None:
-        """
-        Normalize a key by converting shifted characters to their
-        non-shifted equivalents. If the key is a Key object or None,
-        or not a shifted character, it is returned unchanged.
-
-        Args:
-            key (str | Key | None): The key to normalize.
-
-        Returns:
-            str | Key | None: The normalized key.
-        """
-
-        if isinstance(key, str):
-            return normalize_char(key)
-        return key
-
     def _init_callbacks(
         self,
         callbacks: dict[KeySequence, Callable[[], None]] | None = None,
@@ -224,7 +207,7 @@ class KeyListener:
             self._modifiers.add(modifier)
 
         if hasattr(key, "char") and key.char:
-            seq_key = normalize_char(key.char)
+            seq_key = unshift_char(key.char)
         else:
             seq_key = Key.from_pynput(key)
 
@@ -271,7 +254,7 @@ class KeyListener:
 
         if hasattr(key, "char") and key.char:
             for k in list(self._keys_pressed):
-                if k.key == normalize_char(key.char):
+                if k.key == unshift_char(key.char):
                     self._keys_pressed.discard(k)
 
     def start(self):

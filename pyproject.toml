@@ -16,4 +16,5 @@ dependencies = [
   "pyautogui>=0.9.54",
   "pillow>=12.0.0",
   "pyperclip>=1.11.0",
+  "bidict>=0.23.1",
 ]

@@ -3,7 +3,7 @@ from typing import Tuple
 from pynput.keyboard import Key as PynputKey
 
 from automacro.keyboard.key import Key, ModifierKey, stringify_modifiers
-from automacro.keyboard.normalize import normalize_char
+from automacro.keyboard.char import unshift_char
 
 
 class KeySequence:
@@ -15,6 +15,7 @@ class KeySequence:
         self,
         key: str | Key | None = None,
         modifiers: frozenset[ModifierKey] | set[ModifierKey] | None = None,
+        *,
         repeat: bool = False,
         ignore_modifiers: bool = False,
     ):
@@ -24,7 +25,7 @@ class KeySequence:
         Args:
             key (str | Key | None): The character key or Key object. Any
             string key must be a single character, and will be converted to
-            its non-shifted equivalent. Default is None.
+            its unshifted equivalent. Default is None.
             modifiers (frozenset[ModifierKey] | set[ModifierKey] | None):
             Optional set of modifier keys. Default is None.
             repeat (bool): Whether the key input should be treated as a repeat
@@ -36,14 +37,23 @@ class KeySequence:
             False.
         """
 
+        old_key = key
+
         if isinstance(key, str):
             if len(key) != 1:
                 raise ValueError(
                     f"KeyInput: string key must be a single character, got '{key}'"
                 )
-            key = normalize_char(key)
+            key = unshift_char(key)
 
         self._key = key
+
+        # If the provided key is a shifted character, ensure that SHIFT is
+        # included in modifiers
+        if old_key != key:
+            modifiers = set(modifiers) if modifiers else set()
+            modifiers.add(ModifierKey.SHIFT)
+
         self._modifiers = frozenset(modifiers or set())
         self._repeat = repeat
         self._ignore_modifiers = ignore_modifiers
