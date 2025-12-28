@@ -267,6 +267,25 @@ class Workflow:
 
         self._context = None
 
+    def _stop(self):
+        """
+        Internal method to stop the workflow.
+
+        NOTE: This method must be called while holding the workflow lock.
+        """
+
+        if not self._is_running():
+            self._logger.warning(self._prefix_log("Workflow is not running"))
+            return
+
+        self._logger.info(self._prefix_log("Stopping workflow"))
+
+        # Stop the current task
+        self._stop_current_task()
+
+        self._state = WorkflowState.STOPPING
+        self._cond.notify_all()
+
     def _next(self):
         """
         Internal method to move to the next task in the workflow.
@@ -422,22 +441,22 @@ class Workflow:
                         self._prefix_log(f"Exception in task {task.name}: {e}")
                     )
                     with self._cond:
-                        self._state = WorkflowState.STOPPING
-                        self._cond.notify_all()
+                        self._stop()
                     break
 
                 with self._cond:
                     if not self._is_running():
                         break
 
-                    ctx.runtime.tasks_executed += 1
-
                     # If an external control flow change was requested, skip
                     if self._extern_req:
                         self._extern_req = False
                         continue
 
-                    # Otherwise, if the task is a ConditionalTask, handle branching
+                    # Otherwise, handle task end
+                    self._on_task_end()
+
+                    # If the task is a ConditionalTask, handle branching
                     if (
                         isinstance(task, ConditionalTask)
                         and task.next_task_idx is not None
@@ -449,7 +468,7 @@ class Workflow:
                                     f"Invalid task index from ConditionalTask ({task.name}): {task.next_task_idx}"
                                 )
                             )
-                            self.stop()
+                            self._stop()
                             break
                         # Otherwise, jump to the specified task
                         self._jump_to(task.next_task_idx)
@@ -466,9 +485,36 @@ class Workflow:
 
                 self._cleanup_run()
 
+    def _on_task_end(self):
+        """
+        Handle the end of the current task.
+
+        NOTE: This method must be called while holding the workflow lock.
+        """
+
+        if not self._is_running():
+            return
+
+        if not self._is_valid_task_index(self._current_task_idx):
+            return
+
+        ctx = self._get_context()
+        task = self._tasks[self._current_task_idx]
+
+        if task.is_running():
+            return
+
+        ctx.runtime.tasks_executed += 1
+
+        self._run_hook(
+            self._hooks.on_task_end,
+            task,
+            TaskContext(ctx, self._state),
+        )
+
     def _stop_current_task(self):
         """
-        Stop the current task if it is running.
+        Stop the current task if it is running, and handle task end.
 
         NOTE: This method must be called while holding the workflow lock.
         """
@@ -485,11 +531,8 @@ class Workflow:
             return
 
         task.stop()
-        self._run_hook(
-            self._hooks.on_task_end,
-            task,
-            TaskContext(self._get_context(), self._state),
-        )
+
+        self._on_task_end()
 
     def _on_iteration_end(self):
         """
@@ -630,13 +673,8 @@ class Workflow:
             if not self._is_running():
                 return
 
-            self._logger.info(self._prefix_log("Stopping workflow"))
-
-            # Stop the current task
-            self._stop_current_task()
-
-            self._state = WorkflowState.STOPPING
-            self._cond.notify_all()
+            self._extern_req = True
+            self._stop()
 
     def next(self):
         """
