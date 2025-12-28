@@ -13,6 +13,10 @@ from automacro.workflow import (
     TaskRuntimeView,
     HookRuntimeView,
     WorkflowHooks,
+    WorkflowState,
+    WorkflowError,
+    InvalidTaskJumpError,
+    InvalidConditionalIndexError,
 )
 
 __all__ = [
@@ -29,4 +33,8 @@ __all__ = [
     "TaskRuntimeView",
     "HookRuntimeView",
     "WorkflowHooks",
+    "WorkflowState",
+    "WorkflowError",
+    "InvalidTaskJumpError",
+    "InvalidConditionalIndexError",
 ]

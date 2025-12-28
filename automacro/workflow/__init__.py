@@ -6,7 +6,9 @@ from .context import (
     TaskRuntimeView,
     HookRuntimeView,
 )
+from .errors import WorkflowError, InvalidTaskJumpError, InvalidConditionalIndexError
 from .hooks import WorkflowHooks
+from .state import WorkflowState
 from .task import WorkflowTask, CheckpointTask, NoOpTask
 from .workflow import Workflow
 
@@ -18,7 +20,11 @@ __all__ = [
     "WorkflowMeta",
     "TaskRuntimeView",
     "HookRuntimeView",
+    "WorkflowError",
+    "InvalidTaskJumpError",
+    "InvalidConditionalIndexError",
     "WorkflowHooks",
+    "WorkflowState",
     "WorkflowTask",
     "CheckpointTask",
     "NoOpTask",

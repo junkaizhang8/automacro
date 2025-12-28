@@ -14,6 +14,7 @@ from automacro.workflow.context import (
     WorkflowMeta,
 )
 from automacro.workflow.hooks import WorkflowHooks
+from automacro.workflow.errors import InvalidTaskJumpError, InvalidConditionalIndexError
 
 
 class Workflow:
@@ -383,10 +384,7 @@ class Workflow:
 
         # Invalid index
         if not self._is_valid_task_index(task_idx):
-            self._logger.error(
-                self._prefix_log(f"Invalid task index for jump_to: {task_idx}")
-            )
-            return
+            raise InvalidTaskJumpError(task_idx)
 
         # Stop the current task
         self._stop_current_task()
@@ -620,16 +618,12 @@ class Workflow:
                         isinstance(task, ConditionalTask)
                         and task.next_task_idx is not None
                     ):
-                        # If the next task index is invalid, stop the workflow
+                        # Check if the next index is valid
                         if not self._is_valid_task_index(task.next_task_idx):
-                            self._logger.error(
-                                self._prefix_log(
-                                    f"Invalid task index from ConditionalTask ({task.name}): {task.next_task_idx}"
-                                )
+                            raise InvalidConditionalIndexError(
+                                task.name, task.next_task_idx
                             )
-                            self._stop()
-                            break
-                        # Otherwise, jump to the specified task
+                        # If valid, jump to the specified task
                         self._jump_to(task.next_task_idx)
                         continue
 
@@ -746,8 +740,14 @@ class Workflow:
             if not self._is_running():
                 return
 
-            self._extern_req = True
-            self._jump_to(task_idx, reset_transient=reset_transient)
+            try:
+                self._extern_req = True
+                self._jump_to(task_idx, reset_transient=reset_transient)
+            except Exception as e:
+                self._logger.exception(
+                    self._prefix_log(f"Exception in jump_to(task_idx): {e}")
+                )
+                self._stop()
 
     def end_iteration(self):
         """
