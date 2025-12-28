@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, MutableMapping
+from typing import Any, MutableMapping, TypeVar, Generic
 
 from automacro.workflow.state import WorkflowState
 
@@ -24,8 +24,11 @@ class WorkflowRuntime:
 
     current_task_idx: int | None = 0
     prev_task_idx: int | None = None
+
     iteration: int = 0
     tasks_executed: int = 0
+
+    task_started_at: float | None = None
 
 
 @dataclass
@@ -35,8 +38,8 @@ class WorkflowContext:
 
     This class is intended for internal use within a workflow. It should not
     be used directly by tasks or hooks. Instead, tasks and hooks should use
-    the `TaskContext` and `WorkflowHookContext` classes, which provide
-    a restricted view of the workflow context.
+    the `TaskContext` and `HookContext` classes, which provide a restricted
+    view of the workflow context.
     """
 
     # Metadata (read-only)
@@ -68,9 +71,9 @@ class WorkflowContext:
         self.transient.clear()
 
 
-class RuntimeView:
+class _RuntimeView:
     """
-    A read-only view of the runtime state of a workflow run.
+    A generic, read-only view of the runtime state of a workflow run.
     """
 
     __slots__ = ("_ctx",)
@@ -91,41 +94,74 @@ class RuntimeView:
         return self._ctx.runtime.iteration
 
     @property
-    def tasks_executed(self) -> int:
-        return self._ctx.runtime.tasks_executed
-
-    @property
     def is_first_iteration(self) -> bool:
         return self._ctx.runtime.iteration == 0
 
+    @property
+    def tasks_executed(self) -> int:
+        return self._ctx.runtime.tasks_executed
 
-class _ExecutionContextView:
+
+class TaskRuntimeView(_RuntimeView):
     """
-    Highly restricted view of the workflow execution context.
+    A read-only view of the runtime state of a workflow run,
+    intended for use within TaskContext.
+    """
 
-    An internal class not intended for public use.
+    @property
+    def task_started_at(self) -> float:
+        start = self._ctx.runtime.task_started_at
+
+        # Theoretically unreachable due to execution flow.
+        # task_started_at should always be initialized for any hooks using
+        # a TaskContext parameter
+        if start is None:
+            raise RuntimeError("task_started_at accessed when no task is running")
+
+        return start
+
+
+class HookRuntimeView(_RuntimeView):
+    """
+    A read-only view of the runtime state of a workflow run,
+    intended for use within HookContext.
+    """
+
+    pass
+
+
+RuntimeViewT = TypeVar("RuntimeViewT", bound=_RuntimeView, covariant=True)
+
+
+class _ExecutionContextView(Generic[RuntimeViewT]):
+    """
+    A generic, highly restricted view of the workflow execution context.
     """
 
     __slots__ = ("_ctx", "_runtime_view", "_state")
 
-    def __init__(self, ctx: WorkflowContext, state: WorkflowState):
+    def __init__(
+        self, ctx: WorkflowContext, state: WorkflowState, runtime_view: RuntimeViewT
+    ):
         """
         Initialize the TaskContext.
 
         Args:
             ctx (WorkflowContext): The underlying workflow context.
+            state (WorkflowState): The current workflow state.
+            runtime_view (RuntimeViewT): The runtime view to expose.
         """
 
         self._ctx = ctx
         self._state = state
-        self._runtime_view = RuntimeView(ctx)
+        self._runtime_view = runtime_view
 
     @property
     def meta(self) -> WorkflowMeta:
         return self._ctx.meta
 
     @property
-    def runtime(self) -> RuntimeView:
+    def runtime(self) -> RuntimeViewT:
         return self._runtime_view
 
     @property
@@ -153,10 +189,19 @@ class TaskContext(_ExecutionContextView):
     persistent and transient data.
     """
 
-    pass
+    def __init__(self, ctx: WorkflowContext, state: WorkflowState):
+        """
+        Initialize the TaskContext.
+
+        Args:
+            ctx (WorkflowContext): The underlying workflow context.
+            state (WorkflowState): The current workflow state.
+        """
+
+        super().__init__(ctx, state, TaskRuntimeView(ctx))
 
 
-class WorkflowHookContext(_ExecutionContextView):
+class HookContext(_ExecutionContextView):
     """
     Context information exposed to workflow hooks during execution.
 
@@ -164,4 +209,13 @@ class WorkflowHookContext(_ExecutionContextView):
     persistent and transient data.
     """
 
-    pass
+    def __init__(self, ctx: WorkflowContext, state: WorkflowState):
+        """
+        Initialize the HookContext.
+
+        Args:
+            ctx (WorkflowContext): The underlying workflow context.
+            state (WorkflowState): The current workflow state.
+        """
+
+        super().__init__(ctx, state, HookRuntimeView(ctx))

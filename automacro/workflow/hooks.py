@@ -1,5 +1,5 @@
 from automacro.workflow.task import WorkflowTask
-from automacro.workflow.context import TaskContext, WorkflowHookContext
+from automacro.workflow.context import TaskContext, HookContext
 
 
 class WorkflowHooks:
@@ -12,15 +12,15 @@ class WorkflowHooks:
     All hook methods are no-op by default.
 
     The following hooks (with signatures) are available:
-    - `on_workflow_start(self, ctx: WorkflowHookContext)`
-    - `on_workflow_end(self, ctx: WorkflowHookContext)`
-    - `on_iteration_start(self, iteration: int, ctx: WorkflowHookContext)`
-    - `on_iteration_end(self, iteration: int, ctx: WorkflowHookContext)`
+    - `on_workflow_start(self, ctx: HookContext)`
+    - `on_workflow_end(self, ctx: HookContext)`
+    - `on_iteration_start(self, iteration: int, ctx: HookContext)`
+    - `on_iteration_end(self, iteration: int, ctx: HookContext)`
     - `on_task_start(self, task: WorkflowTask, ctx: TaskContext)`
     - `on_task_end(self, task: WorkflowTask, ctx: TaskContext)`
-    - `on_current_task_change(self, prev: WorkflowTask | None, current: WorkflowTask | None, ctx: WorkflowHookContext)`
-    - `on_pause(self, ctx: WorkflowHookContext)`
-    - `on_resume(self, ctx: WorkflowHookContext)`
+    - `on_current_task_change(self, prev: WorkflowTask | None, current: WorkflowTask | None, ctx: HookContext)`
+    - `on_pause(self, ctx: HookContext)`
+    - `on_resume(self, ctx: HookContext)`
 
     Attempting to call these workflow control operators inside hooks will have
     no effect:
@@ -35,7 +35,7 @@ class WorkflowHooks:
     - `toggle`
     """
 
-    def on_workflow_start(self, ctx: WorkflowHookContext):
+    def on_workflow_start(self, ctx: HookContext):
         """
         Called once when a workflow run starts.
 
@@ -43,12 +43,12 @@ class WorkflowHooks:
         and before any tasks are executed.
 
         Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
 
-    def on_workflow_end(self, ctx: WorkflowHookContext):
+    def on_workflow_end(self, ctx: HookContext):
         """
         Called once when a workflow run ends.
 
@@ -60,12 +60,12 @@ class WorkflowHooks:
         The workflow context is still valid when this hook is called.
 
         Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
 
-    def on_iteration_start(self, iteration: int, ctx: WorkflowHookContext):
+    def on_iteration_start(self, iteration: int, ctx: HookContext):
         """
         Called at the start of each workflow loop iteration.
 
@@ -79,12 +79,12 @@ class WorkflowHooks:
 
         Args:
             iteration (int): The current iteration number (0-based).
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
 
-    def on_iteration_end(self, iteration: int, ctx: WorkflowHookContext):
+    def on_iteration_end(self, iteration: int, ctx: HookContext):
         """
         Called at the end of each workflow loop iteration.
 
@@ -93,7 +93,7 @@ class WorkflowHooks:
 
         Args:
             iteration (int): The current iteration number (0-based).
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
@@ -130,7 +130,7 @@ class WorkflowHooks:
         self,
         prev: WorkflowTask | None,
         current: WorkflowTask | None,
-        ctx: WorkflowHookContext,
+        ctx: HookContext,
     ):
         """
         Called when the current task changes.
@@ -148,12 +148,12 @@ class WorkflowHooks:
             if there was no previous task.
             current (WorkflowTask | None): The current task, or None if the
             workflow is finished.
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
 
-    def on_pause(self, ctx: WorkflowHookContext):
+    def on_pause(self, ctx: HookContext):
         """
         Called when the workflow pauses.
 
@@ -162,12 +162,12 @@ class WorkflowHooks:
         or the `toggle` method.
 
         Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass
 
-    def on_resume(self, ctx: WorkflowHookContext):
+    def on_resume(self, ctx: HookContext):
         """
         Called when the workflow resumes execution.
 
@@ -176,7 +176,7 @@ class WorkflowHooks:
         or the `toggle` method.
 
         Args:
-            ctx (WorkflowHookContext): The context of the workflow run.
+            ctx (HookContext): The context of the workflow run.
         """
 
         pass

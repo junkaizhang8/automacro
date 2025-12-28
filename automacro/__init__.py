@@ -8,9 +8,10 @@ from automacro.workflow import (
     ConditionalTask,
     WaitUntilTask,
     TaskContext,
-    WorkflowHookContext,
+    HookContext,
     WorkflowMeta,
-    RuntimeView,
+    TaskRuntimeView,
+    HookRuntimeView,
     WorkflowHooks,
 )
 
@@ -23,8 +24,9 @@ __all__ = [
     "ConditionalTask",
     "WaitUntilTask",
     "TaskContext",
-    "WorkflowHookContext",
+    "HookContext",
     "WorkflowMeta",
-    "RuntimeView",
+    "TaskRuntimeView",
+    "HookRuntimeView",
     "WorkflowHooks",
 ]

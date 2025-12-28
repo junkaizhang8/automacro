@@ -10,7 +10,7 @@ from automacro.workflow.state import WorkflowState
 from automacro.workflow.context import (
     WorkflowContext,
     TaskContext,
-    WorkflowHookContext,
+    HookContext,
     WorkflowMeta,
 )
 from automacro.workflow.hooks import WorkflowHooks
@@ -172,6 +172,39 @@ class Workflow:
         finally:
             self._in_hook = False
 
+    def _make_task_context(self) -> TaskContext:
+        """
+        Factory method to create a TaskContext for the current task.
+
+        NOTE: This method must be called while holding the workflow lock.
+
+        Returns:
+            TaskContext: The task context for the current task.
+        """
+
+        ctx = self._get_context()
+        runtime = ctx.runtime
+
+        # Ensure task_started_at is initialized
+        if runtime.task_started_at is None:
+            raise RuntimeError(
+                "TaskContext created without task_started_at initialized"
+            )
+
+        return TaskContext(ctx, self._state)
+
+    def _make_hook_context(self) -> HookContext:
+        """
+        Factory method to create a HookContext for the workflow.
+
+        NOTE: This method must be called while holding the workflow lock.
+
+        Returns:
+            HookContext: The workflow hook context.
+        """
+
+        return HookContext(self._get_context(), self._state)
+
     def _prefix_log(self, message: str) -> str:
         """
         Prefix log messages with the workflow name and the run ID
@@ -326,7 +359,7 @@ class Workflow:
             hooks.on_current_task_change,
             prev,
             self._tasks[self._current_task_idx],
-            WorkflowHookContext(ctx, self._state),
+            self._make_hook_context(),
         )
 
         # Notify in case the workflow is waiting
@@ -386,104 +419,11 @@ class Workflow:
             self._hooks.on_current_task_change,
             prev,
             current,
-            WorkflowHookContext(self._get_context(), self._state),
+            self._make_hook_context(),
         )
 
         # Notify in case the workflow is waiting
         self._cond.notify_all()
-
-    def _run_impl(self):
-        """
-        Internal method for handling the workflow run loop.
-        """
-
-        with self._cond:
-            if not self._init_run():
-                return
-
-            ctx = self._get_context()
-            hooks = self._hooks
-            self._logger.info(self._prefix_log("Starting iteration 0"))
-
-            self._run_hook(
-                hooks.on_workflow_start,
-                WorkflowHookContext(self._get_context(), self._state),
-            )
-            self._run_hook(
-                hooks.on_iteration_start,
-                0,
-                WorkflowHookContext(ctx, self._state),
-            )
-
-        try:
-            while True:
-                with self._cond:
-                    while self._is_paused():
-                        self._cond.wait()
-
-                    if not self._is_running():
-                        break
-
-                    task = self._tasks[self._current_task_idx]
-
-                    self._run_hook(
-                        hooks.on_task_start,
-                        task,
-                        TaskContext(ctx, self._state),
-                    )
-
-                try:
-                    # Execute the current task outside the lock to prevent
-                    # blocking other operations
-                    task.run(TaskContext(ctx, self._state))
-                except Exception as e:
-                    self._logger.exception(
-                        self._prefix_log(f"Exception in task {task.name}: {e}")
-                    )
-                    with self._cond:
-                        self._stop()
-                    break
-
-                with self._cond:
-                    if not self._is_running():
-                        break
-
-                    # If an external control flow change was requested, skip
-                    if self._extern_req:
-                        self._extern_req = False
-                        continue
-
-                    # Otherwise, handle task end
-                    self._on_task_end()
-
-                    # If the task is a ConditionalTask, handle branching
-                    if (
-                        isinstance(task, ConditionalTask)
-                        and task.next_task_idx is not None
-                    ):
-                        # If the next task index is invalid, stop the workflow
-                        if not self._is_valid_task_index(task.next_task_idx):
-                            self._logger.error(
-                                self._prefix_log(
-                                    f"Invalid task index from ConditionalTask ({task.name}): {task.next_task_idx}"
-                                )
-                            )
-                            self._stop()
-                            break
-                        # Otherwise, jump to the specified task
-                        self._jump_to(task.next_task_idx)
-                        continue
-
-                    # Otherwise, move to the next task
-                    self._next()
-        finally:
-            with self._cond:
-                self._run_hook(
-                    hooks.on_workflow_end,
-                    WorkflowHookContext(ctx, self._state),
-                )
-
-                self._cleanup_run()
 
     def _on_task_end(self):
         """
@@ -499,18 +439,21 @@ class Workflow:
             return
 
         ctx = self._get_context()
+        runtime = ctx.runtime
         task = self._tasks[self._current_task_idx]
 
         if task.is_running():
             return
 
-        ctx.runtime.tasks_executed += 1
+        runtime.tasks_executed += 1
 
         self._run_hook(
             self._hooks.on_task_end,
             task,
-            TaskContext(ctx, self._state),
+            self._make_task_context(),
         )
+
+        runtime.task_started_at = None
 
     def _stop_current_task(self):
         """
@@ -554,7 +497,7 @@ class Workflow:
         self._run_hook(
             hooks.on_iteration_end,
             ctx.runtime.iteration,
-            WorkflowHookContext(ctx, self._state),
+            self._make_hook_context(),
         )
 
         prev = (
@@ -573,7 +516,7 @@ class Workflow:
                 hooks.on_current_task_change,
                 prev,
                 None,
-                WorkflowHookContext(ctx, self._state),
+                self._make_hook_context(),
             )
 
             self._state = WorkflowState.STOPPING
@@ -596,15 +539,110 @@ class Workflow:
         self._run_hook(
             hooks.on_iteration_start,
             runtime.iteration,
-            WorkflowHookContext(ctx, self._state),
+            self._make_hook_context(),
         )
 
         self._run_hook(
             hooks.on_current_task_change,
             prev,
             self._tasks[0],
-            WorkflowHookContext(ctx, self._state),
+            self._make_hook_context(),
         )
+
+    def _run_impl(self):
+        """
+        Internal method for handling the workflow run loop.
+        """
+
+        with self._cond:
+            if not self._init_run():
+                return
+
+            ctx = self._get_context()
+            hooks = self._hooks
+            self._logger.info(self._prefix_log("Starting iteration 0"))
+
+            self._run_hook(
+                hooks.on_workflow_start,
+                self._make_hook_context(),
+            )
+            self._run_hook(
+                hooks.on_iteration_start,
+                0,
+                self._make_hook_context(),
+            )
+
+        try:
+            while True:
+                with self._cond:
+                    while self._is_paused():
+                        self._cond.wait()
+
+                    if not self._is_running():
+                        break
+
+                    task = self._tasks[self._current_task_idx]
+
+                    ctx.runtime.task_started_at = monotonic()
+
+                    self._run_hook(
+                        hooks.on_task_start,
+                        task,
+                        self._make_task_context(),
+                    )
+
+                try:
+                    # Execute the current task outside the lock to prevent
+                    # blocking other operations
+                    task.run(self._make_task_context())
+                except Exception as e:
+                    self._logger.exception(
+                        self._prefix_log(f"Exception in task {task.name}: {e}")
+                    )
+                    with self._cond:
+                        self._stop()
+                        break
+
+                with self._cond:
+                    if not self._is_running():
+                        break
+
+                    # If an external control flow change was requested, skip
+                    if self._extern_req:
+                        self._extern_req = False
+                        continue
+
+                    # Otherwise, handle task end
+                    self._on_task_end()
+
+                    # If the task is a ConditionalTask, handle branching
+                    if (
+                        isinstance(task, ConditionalTask)
+                        and task.next_task_idx is not None
+                    ):
+                        # If the next task index is invalid, stop the workflow
+                        if not self._is_valid_task_index(task.next_task_idx):
+                            self._logger.error(
+                                self._prefix_log(
+                                    f"Invalid task index from ConditionalTask ({task.name}): {task.next_task_idx}"
+                                )
+                            )
+                            self._stop()
+                            break
+                        # Otherwise, jump to the specified task
+                        self._jump_to(task.next_task_idx)
+                        continue
+
+                    # Otherwise, move to the next task
+                    self._next()
+        finally:
+            with self._cond:
+                self._run_hook(
+                    hooks.on_workflow_end,
+                    self._make_hook_context(),
+                )
+
+                self._cleanup_run()
 
     def run(self):
         """
@@ -751,14 +789,12 @@ class Workflow:
             if self._state != WorkflowState.RUNNING:
                 return
 
-            ctx = self._get_context()
-
             self._state = WorkflowState.PAUSED
             self._logger.info(self._prefix_log("Workflow paused"))
 
             self._run_hook(
                 self._hooks.on_pause,
-                WorkflowHookContext(ctx, self._state),
+                self._make_hook_context(),
             )
 
     def resume(self):
@@ -773,15 +809,13 @@ class Workflow:
             if self._state != WorkflowState.PAUSED:
                 return
 
-            ctx = self._get_context()
-
             self._state = WorkflowState.RUNNING
 
             self._logger.info(self._prefix_log("Workflow resumed"))
 
             self._run_hook(
                 self._hooks.on_resume,
-                WorkflowHookContext(ctx, self._state),
+                self._make_hook_context(),
             )
             self._cond.notify_all()
 
@@ -794,8 +828,6 @@ class Workflow:
             if self._check_in_hook("toggle"):
                 return
 
-            ctx = self._get_context()
-
             if self._state == WorkflowState.PAUSED:
                 self._state = WorkflowState.RUNNING
 
@@ -803,7 +835,7 @@ class Workflow:
 
                 self._run_hook(
                     self._hooks.on_resume,
-                    WorkflowHookContext(ctx, self._state),
+                    self._make_hook_context(),
                 )
                 self._cond.notify_all()
             elif self._state == WorkflowState.RUNNING:
@@ -813,7 +845,7 @@ class Workflow:
 
                 self._run_hook(
                     self._hooks.on_pause,
-                    WorkflowHookContext(ctx, self._state),
+                    self._make_hook_context(),
                 )
 
     def is_running(self) -> bool:
