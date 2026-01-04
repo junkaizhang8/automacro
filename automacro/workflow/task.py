@@ -139,8 +139,8 @@ class WorkflowTask:
 
 class CheckpointTask(WorkflowTask):
     """
-    A checkpoint workflow task that continuously loops without doing anything.
-    Useful for creating pause points in a workflow.
+    A checkpoint workflow task that blocks the running thread until `stop` is
+    called. Useful for creating pause points in a workflow.
     """
 
     def __init__(self, name: str = "Checkpoint Task"):
@@ -155,10 +155,13 @@ class CheckpointTask(WorkflowTask):
 
     def step(self, ctx: TaskContext):
         """
-        Continuously loop without doing anything.
+        Block until stopped.
         """
 
-        pass
+        # Block the thread until a stop is requested
+        self._stop_event.wait()
+
+        raise _TaskInterrupted
 
 
 class NoOpTask(WorkflowTask):
@@ -181,4 +184,4 @@ class NoOpTask(WorkflowTask):
         Do nothing.
         """
 
-        self.stop()
+        raise _TaskInterrupted
