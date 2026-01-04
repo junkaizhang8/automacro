@@ -1,3 +1,4 @@
+from .capture import capture
 from .color import get_pixel_color, is_pixel_color, rgb_to_hex
 from .coordinates import (
     get_scale_factor,
@@ -14,7 +15,10 @@ from .image import (
     locate_image_center_all,
 )
 
+from . import ocr
+
 __all__ = [
+    "capture",
     "get_pixel_color",
     "is_pixel_color",
     "rgb_to_hex",
@@ -28,4 +32,5 @@ __all__ = [
     "locate_image_center",
     "locate_image_all",
     "locate_image_center_all",
+    "ocr",
 ]

@@ -12,6 +12,14 @@ except ImportError:
     _has_cv = False
 
 
+def _require_cv():
+    if not _has_cv:
+        raise NotImplementedError(
+            "OpenCV is required for image matching. "
+            "Install with: pip install automacro[cv]"
+        )
+
+
 def locate_image(
     image_path: str,
     *,
@@ -37,10 +45,7 @@ def locate_image(
         found instance of the image, otherwise None if not found on screen.
     """
 
-    if not _has_cv:
-        raise NotImplementedError(
-            "This function is only available if OpenCV is installed"
-        )
+    _require_cv()
 
     if confidence < 0.0 or confidence > 1.0:
         raise ValueError("Confidence must be between 0.0 and 1.0")
@@ -118,10 +123,7 @@ def locate_image_all(
         tuples for each found instance of the image. Empty list if none found.
     """
 
-    if not _has_cv:
-        raise NotImplementedError(
-            "This function is only available if OpenCV is installed"
-        )
+    _require_cv()
 
     if confidence < 0.0 or confidence > 1.0:
         raise ValueError("Confidence must be between 0.0 and 1.0")
