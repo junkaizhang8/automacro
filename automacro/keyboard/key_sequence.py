@@ -24,8 +24,7 @@ class KeySequence:
 
         Args:
             key (str | Key | None): The character key or Key object. Any
-            string key must be a single character, and will be converted to
-            its unshifted equivalent. Default is None.
+            string key must be a single character. Default is None.
             modifiers (frozenset[ModifierKey] | set[ModifierKey] | None):
             Optional set of modifier keys. Default is None.
             repeat (bool): Whether the key input should be treated as a repeat
