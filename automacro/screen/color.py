@@ -1,13 +1,9 @@
 import re
 
-import pyautogui as pag
-
-# PyAutoGUI uses physical coordinates for pixel operations, so we need to
-# rescale coordinates accordingly.
-from automacro.screen.coordinates import scale_point
+import mss
 
 
-def get_pixel_color(x: int, y: int) -> tuple[int, int, int]:
+def get_pixel(x: int, y: int) -> tuple[int, int, int]:
     """
     Get the RGB color of the pixel at the specified (x, y) coordinates on the
     screen.
@@ -21,11 +17,18 @@ def get_pixel_color(x: int, y: int) -> tuple[int, int, int]:
         where each value ranges from 0 to 255.
     """
 
-    return pag.pixel(*scale_point(x, y))
+    with mss.mss() as sct:
+        monitor = {"left": x, "top": y, "width": 1, "height": 1}
+
+        img = sct.grab(monitor)
+
+        r, g, b = tuple(img.rgb[:3])
+
+        return r, g, b
 
 
-def is_pixel_color(
-    x: int, y: int, expected_color: tuple[int, int, int], tolerance: int = 0
+def is_pixel(
+    x: int, y: int, expected: tuple[int, int, int], tolerance: int = 0
 ) -> bool:
     """
     Check if the pixel at the specified (x, y) coordinates matches the expected
@@ -34,7 +37,7 @@ def is_pixel_color(
     Args:
         x (int): The x-coordinate of the pixel.
         y (int): The y-coordinate of the pixel.
-        expected_color (tuple[int, int, int]): The expected RGB color as a tuple
+        expected (tuple[int, int, int]): The expected RGB color as a tuple
         (R, G, B).
         tolerance (int): The tolerance for color matching. Default is 0.
 
@@ -43,7 +46,8 @@ def is_pixel_color(
         tolerance, False otherwise.
     """
 
-    return pag.pixelMatchesColor(*scale_point(x, y), expected_color, tolerance)
+    pixel = get_pixel(x, y)
+    return all(abs(pixel[i] - expected[i]) <= tolerance for i in range(3))
 
 
 def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
