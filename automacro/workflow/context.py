@@ -181,7 +181,7 @@ class _ExecutionContextView(Generic[RuntimeViewT]):
         return self._state == WorkflowState.PAUSED
 
 
-class TaskContext(_ExecutionContextView):
+class TaskContext(_ExecutionContextView[TaskRuntimeView]):
     """
     Context information exposed to each workflow task during execution.
 
@@ -201,7 +201,7 @@ class TaskContext(_ExecutionContextView):
         super().__init__(ctx, state, TaskRuntimeView(ctx))
 
 
-class HookContext(_ExecutionContextView):
+class HookContext(_ExecutionContextView[HookRuntimeView]):
     """
     Context information exposed to workflow hooks during execution.
 
