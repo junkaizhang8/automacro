@@ -9,7 +9,7 @@ from .context import (
 from .errors import WorkflowError, InvalidTaskJumpError, InvalidConditionalIndexError
 from .hooks import WorkflowHooks
 from .state import WorkflowState
-from .task import WorkflowTask, CheckpointTask, NoOpTask
+from .task import WorkflowTask, CheckpointTask, NoOpTask, TaskInterrupted
 from .workflow import Workflow
 
 __all__ = [
@@ -28,5 +28,6 @@ __all__ = [
     "WorkflowTask",
     "CheckpointTask",
     "NoOpTask",
+    "TaskInterrupted",
     "Workflow",
 ]

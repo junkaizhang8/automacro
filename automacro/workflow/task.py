@@ -4,9 +4,9 @@ from automacro.utils import _get_logger
 from automacro.workflow.context import TaskContext
 
 
-class _TaskInterrupted(Exception):
+class TaskInterrupted(Exception):
     """
-    Internal exception raised when a task is interrupted while waiting.
+    Exception raised to signal that a workflow task has been interrupted.
     """
 
     pass
@@ -96,7 +96,7 @@ class WorkflowTask:
                 # We wrap step in a try-except to catch interruptions
                 try:
                     self.step(ctx)
-                except _TaskInterrupted:
+                except TaskInterrupted:
                     break
                 self._stop_event.wait(0)
         finally:
@@ -123,18 +123,35 @@ class WorkflowTask:
 
         return not self._stop_event.is_set()
 
+    def check_stopped(self):
+        """
+        Non-blocking check for whether the task has been stopped. If stopped,
+        raises `TaskInterrupted` and immediately exits the current step.
+        Only meant to be called inside `step`.
+
+        Raises:
+            TaskInterrupted: If the task has been stopped.
+        """
+        if not self.is_running():
+            raise TaskInterrupted
+
     def wait(self, seconds: float):
         """
         Wait for a specified number of seconds or until the task is stopped
-        (whichever comes first).
+        (whichever comes first). If stopped, raises `TaskInterrupted` and
+        immediately exits the current step. Only meant to be called inside
+        `step`.
 
         Args:
             seconds (float): Number of seconds to wait.
+
+        Raises:
+            TaskInterrupted: If the task has been stopped during the wait.
         """
 
         interrupted = self._stop_event.wait(timeout=seconds)
         if interrupted:
-            raise _TaskInterrupted
+            raise TaskInterrupted
 
 
 class CheckpointTask(WorkflowTask):
@@ -161,7 +178,7 @@ class CheckpointTask(WorkflowTask):
         # Block the thread until a stop is requested
         self._stop_event.wait()
 
-        raise _TaskInterrupted
+        raise TaskInterrupted
 
 
 class NoOpTask(WorkflowTask):
@@ -184,4 +201,4 @@ class NoOpTask(WorkflowTask):
         Do nothing.
         """
 
-        raise _TaskInterrupted
+        raise TaskInterrupted
