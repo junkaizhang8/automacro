@@ -57,6 +57,32 @@ class WorkflowTask:
             f"[{self._workflow_name}({self._workflow_run_id}):{self._name}] {message}"
         )
 
+    def on_start(self, ctx: TaskContext):
+        """
+        Called exactly once when the task starts.
+
+        Subclasses may override this method to define any setup behavior
+        at the start of the task.
+
+        Args:
+            ctx (TaskContext): The task context.
+        """
+
+        pass
+
+    def on_end(self, ctx: TaskContext):
+        """
+        Called exactly once when the task ends (not when `stop` is called).
+
+        Subclasses may override this method to define any teardown behavior
+        at the end of the task.
+
+        Args:
+            ctx (TaskContext): The task context.
+        """
+
+        pass
+
     def step(self, ctx: TaskContext):
         """
         Perform a single iteration of the task.
@@ -92,6 +118,7 @@ class WorkflowTask:
         self._stop_event.clear()
 
         try:
+            self.on_start(ctx)
             while self.is_running():
                 # We wrap step in a try-except to catch interruptions
                 try:
@@ -100,6 +127,7 @@ class WorkflowTask:
                     break
                 self._stop_event.wait(0)
         finally:
+            self.on_end(ctx)
             self._stop_event.set()
             self._workflow_name = None
             self._workflow_run_id = None
