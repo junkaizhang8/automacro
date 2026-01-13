@@ -1,5 +1,5 @@
 from PIL import Image
-import pyautogui as pag
+import mss
 
 
 def capture(region: tuple[int, int, int, int] | None = None) -> Image.Image:
@@ -14,5 +14,21 @@ def capture(region: tuple[int, int, int, int] | None = None) -> Image.Image:
         PIL.Image.Image: The captured screenshot image.
     """
 
-    # pyautogui uses logical coordinates for screenshots; no scaling needed
-    return pag.screenshot(region=region)
+    with mss.mss() as sct:
+        monitor = (
+            sct.monitors[1]
+            if region is None
+            else {
+                "left": region[0],
+                "top": region[1],
+                "width": region[2],
+                "height": region[3],
+            }
+        )
+
+        sct_img = sct.grab(monitor)
+
+        # Convert to PIL Image
+        img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+
+        return img
