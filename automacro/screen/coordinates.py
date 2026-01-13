@@ -3,6 +3,8 @@ import subprocess
 
 import pyautogui as pag
 
+from automacro.screen.types import Point, BBox, Size
+
 
 _SCALE = 1.0
 
@@ -48,7 +50,7 @@ def get_scale_factor() -> float:
     return _SCALE
 
 
-def get_screen_size() -> tuple[int, int]:
+def get_screen_size() -> Size:
     """
     Return the screen size in logical coordinates.
 
@@ -59,7 +61,7 @@ def get_screen_size() -> tuple[int, int]:
     return pag.size()
 
 
-def scale_point(x: int, y: int, inverse: bool = False) -> tuple[int, int]:
+def scale_point(x: int, y: int, inverse: bool = False) -> Point:
     """
     Convert coordinates between logical and physical spaces.
 
@@ -108,7 +110,7 @@ def scale_value(value: int, inverse: bool = False) -> int:
 
 def scale_box(
     left: int, top: int, width: int, height: int, inverse: bool = False
-) -> tuple[int, int, int, int]:
+) -> BBox:
     """
     Convert a rectangular region between logical and physical spaces.
 
@@ -130,7 +132,7 @@ def scale_box(
     return scaled_left, scaled_top, scaled_width, scaled_height
 
 
-def center(left: int, top: int, width: int, height: int) -> tuple[int, int]:
+def center(left: int, top: int, width: int, height: int) -> Point:
     """
     Calculate the center point of a rectangular box.
 

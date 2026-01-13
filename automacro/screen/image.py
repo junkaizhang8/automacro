@@ -5,6 +5,7 @@ from PIL import Image
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
 from automacro.screen.coordinates import scale_box, center
+from automacro.screen.types import Point, BBox
 
 try:
     import cv2  # noqa: F401
@@ -45,8 +46,8 @@ def locate_image(
     *,
     confidence: float = 0.999,
     grayscale: bool = False,
-    region: tuple[int, int, int, int] | None = None,
-) -> tuple[int, int, int, int] | None:
+    region: BBox | None = None,
+) -> BBox | None:
     """
     Locate an image on the screen.
 
@@ -91,8 +92,8 @@ def locate_image_center(
     *,
     confidence: float = 0.999,
     grayscale: bool = False,
-    region: tuple[int, int, int, int] | None = None,
-) -> tuple[int, int] | None:
+    region: BBox | None = None,
+) -> Point | None:
     """
     Locate the center of an image on the screen.
 
@@ -127,8 +128,8 @@ def locate_image_all(
     threshold: int = 10,
     grayscale: bool = False,
     limit: int = 1000,
-    region: tuple[int, int, int, int] | None = None,
-) -> list[tuple[int, int, int, int]]:
+    region: BBox | None = None,
+) -> list[BBox]:
     """
     Locate all instances of an image on the screen.
 
@@ -199,8 +200,8 @@ def locate_image_center_all(
     threshold: int = 10,
     grayscale: bool = False,
     limit: int = 1000,
-    region: tuple[int, int, int, int] | None = None,
-) -> list[tuple[int, int]]:
+    region: BBox | None = None,
+) -> list[Point]:
     """
     Locate the centers of all instances of an image on the screen.
 

@@ -1,8 +1,10 @@
 from PIL import Image
 import mss
 
+from automacro.screen.types import BBox
 
-def capture(region: tuple[int, int, int, int] | None = None) -> Image.Image:
+
+def capture(region: BBox | None = None) -> Image.Image:
     """
     Capture a screenshot of the screen or a specific region.
 

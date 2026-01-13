@@ -2,8 +2,10 @@ import re
 
 import mss
 
+from automacro.screen.types import RGB
 
-def get_pixel(x: int, y: int) -> tuple[int, int, int]:
+
+def get_pixel(x: int, y: int) -> RGB:
     """
     Get the RGB color of the pixel at the specified (x, y) coordinates on the
     screen.
@@ -27,9 +29,7 @@ def get_pixel(x: int, y: int) -> tuple[int, int, int]:
         return r, g, b
 
 
-def is_pixel(
-    x: int, y: int, expected: tuple[int, int, int], tolerance: int = 0
-) -> bool:
+def is_pixel(x: int, y: int, expected: RGB, tolerance: int = 0) -> bool:
     """
     Check if the pixel at the specified (x, y) coordinates matches the expected
     RGB color within a given tolerance.
@@ -50,7 +50,7 @@ def is_pixel(
     return all(abs(pixel[i] - expected[i]) <= tolerance for i in range(3))
 
 
-def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
+def rgb_to_hex(rgb: RGB) -> str:
     """
     Convert an RGB color tuple to a hexadecimal color string.
 
@@ -69,7 +69,7 @@ def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
 
 
-def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+def hex_to_rgb(hex_color: str) -> RGB:
     """
     Convert a hexadecimal color string to an RGB color tuple.
 

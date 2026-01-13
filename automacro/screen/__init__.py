@@ -14,6 +14,7 @@ from .image import (
     locate_image_all,
     locate_image_center_all,
 )
+from .types import Point, BBox, Size, RGB
 
 from . import ocr
 
@@ -33,5 +34,9 @@ __all__ = [
     "locate_image_center",
     "locate_image_all",
     "locate_image_center_all",
+    "Point",
+    "BBox",
+    "Size",
+    "RGB",
     "ocr",
 ]
