@@ -1,3 +1,5 @@
+import re
+
 import pyautogui as pag
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
@@ -61,3 +63,31 @@ def rgb_to_hex(rgb: tuple[int, int, int]) -> str:
         raise ValueError("RGB values must be in the range 0-255.")
 
     return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
+
+
+def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
+    """
+    Convert a hexadecimal color string to an RGB color tuple.
+
+    Args:
+        hex_color (str): The hexadecimal color string in the format '#RRGGBB'.
+
+    Returns:
+        tuple[int, int, int]: The RGB color as a tuple (R, G, B).
+    """
+
+    hex_pattern = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+    if not hex_pattern.match(hex_color):
+        raise ValueError(
+            "Hex color must be in the format '#RRGGBB' with valid hex digits."
+        )
+
+    # Remove the leading '#'
+    hex_color = hex_color.lstrip("#")
+
+    red = int(hex_color[0:2], 16)
+    green = int(hex_color[2:4], 16)
+    blue = int(hex_color[4:6], 16)
+
+    return (red, green, blue)
