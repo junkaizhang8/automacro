@@ -1,5 +1,6 @@
 import pyautogui as pag
 import pyscreeze
+from PIL import Image
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
@@ -21,8 +22,26 @@ def _require_cv():
         )
 
 
+def _validate_image_file(image_path: str):
+    """
+    Validate that the given image file exists and is a valid image.
+
+    Args:
+        image_path (str): The file path of the image to validate.
+
+    Raises:
+        ValueError: If the image file does not exist or is invalid.
+    """
+
+    try:
+        with Image.open(image_path) as img:
+            img.verify()
+    except Exception as e:
+        raise ValueError(f"Invalid image file: '{image_path}'") from e
+
+
 def locate_image(
-    image_path: str,
+    image: str | Image.Image,
     *,
     confidence: float = 0.999,
     grayscale: bool = False,
@@ -32,7 +51,8 @@ def locate_image(
     Locate an image on the screen.
 
     Args:
-        image_path (str): The file path of the image to locate.
+        image (str | PIL.Image.Image): The file path of the image to locate or
+        the PIL Image object.
         confidence (float): The confidence level for the match (0.0 to 1.0).
         Default is 0.999.
         grayscale (bool): Whether to convert the image to grayscale for
@@ -51,11 +71,15 @@ def locate_image(
     if confidence < 0.0 or confidence > 1.0:
         raise ValueError("Confidence must be between 0.0 and 1.0")
 
+    # If file path is given, convert to PIL Image and verify it
+    if isinstance(image, str):
+        _validate_image_file(image)
+
     try:
         if region:
             region = scale_box(*region)
         instance = pag.locateOnScreen(
-            image_path, confidence=confidence, grayscale=grayscale, region=region
+            image, confidence=confidence, grayscale=grayscale, region=region
         )
         return scale_box(*instance, inverse=True) if instance else None
     except pag.ImageNotFoundException:
@@ -63,7 +87,7 @@ def locate_image(
 
 
 def locate_image_center(
-    image_path: str,
+    image: str | Image.Image,
     *,
     confidence: float = 0.999,
     grayscale: bool = False,
@@ -88,7 +112,7 @@ def locate_image_center(
     """
 
     instance = locate_image(
-        image_path, confidence=confidence, grayscale=grayscale, region=region
+        image, confidence=confidence, grayscale=grayscale, region=region
     )
     if instance:
         return center(*instance)
@@ -97,18 +121,20 @@ def locate_image_center(
 
 
 def locate_image_all(
-    image_path: str,
+    image: str | Image.Image,
     *,
     confidence: float = 0.999,
     threshold: int = 10,
     grayscale: bool = False,
+    limit: int = 1000,
     region: tuple[int, int, int, int] | None = None,
 ) -> list[tuple[int, int, int, int]]:
     """
     Locate all instances of an image on the screen.
 
     Args:
-        image_path (str): The file path of the image to locate.
+        image (str | PIL.Image.Image): The file path of the image to locate or
+        the PIL Image object.
         confidence (float): The confidence level for the match (0.0 to 1.0).
         Default is 0.999.
         threshold (int): The minimum distance threshold in pixels between
@@ -116,6 +142,7 @@ def locate_image_all(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        limit (int): The maximum number of instances to locate. Default is 1000.
         region (tuple[int, int, int, int] | None): A region (left, top, width,
         height) to limit the search area on the screen. Default is None.
 
@@ -129,11 +156,18 @@ def locate_image_all(
     if confidence < 0.0 or confidence > 1.0:
         raise ValueError("Confidence must be between 0.0 and 1.0")
 
+    if isinstance(image, str):
+        _validate_image_file(image)
+
     try:
         if region:
             region = scale_box(*region)
         instances = pag.locateAllOnScreen(
-            image_path, confidence=confidence, grayscale=grayscale, region=region
+            image,
+            confidence=confidence,
+            grayscale=grayscale,
+            limit=limit,
+            region=region,
         )
         # Rescale instances to logical coordinates
         instances = [scale_box(*instance, inverse=True) for instance in instances]
@@ -164,6 +198,7 @@ def locate_image_center_all(
     confidence: float = 0.999,
     threshold: int = 10,
     grayscale: bool = False,
+    limit: int = 1000,
     region: tuple[int, int, int, int] | None = None,
 ) -> list[tuple[int, int]]:
     """
@@ -178,6 +213,7 @@ def locate_image_center_all(
         grayscale (bool): Whether to convert the image to grayscale for
         matching. Setting to True can improve performance, but may result
         in false-positives. Default is False.
+        limit (int): The maximum number of instances to locate. Default is 1000.
         region (tuple[int, int, int, int] | None): A region (left, top, width,
         height) to limit the search area on the screen. Default is None.
 
@@ -191,6 +227,7 @@ def locate_image_center_all(
         confidence=confidence,
         threshold=threshold,
         grayscale=grayscale,
+        limit=limit,
         region=region,
     )
     return [center(*instance) for instance in instances]
