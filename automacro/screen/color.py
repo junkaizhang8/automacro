@@ -66,7 +66,7 @@ def rgb_to_hex(rgb: RGB) -> str:
     if any(not (0 <= value <= 255) for value in rgb):
         raise ValueError("RGB values must be in the range 0-255.")
 
-    return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2])
+    return "#{:02x}{:02x}{:02x}".format(rgb[0], rgb[1], rgb[2]).upper()
 
 
 def hex_to_rgb(hex_color: str) -> RGB:
