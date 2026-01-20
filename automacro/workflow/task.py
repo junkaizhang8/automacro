@@ -143,10 +143,10 @@ class WorkflowTask:
 
     def is_running(self) -> bool:
         """
-        Check if the workflow is running.
+        Check if the task is running.
 
         Returns:
-            bool: True if the workflow is running, False otherwise.
+            bool: True if the task is running, False otherwise.
         """
 
         return not self._stop_event.is_set()
