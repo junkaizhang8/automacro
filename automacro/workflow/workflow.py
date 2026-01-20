@@ -1,20 +1,20 @@
-from typing import Sequence, Callable
 import threading
-from time import monotonic
 import uuid
+from time import monotonic
+from typing import Callable, Sequence
 
 from automacro.utils import _get_logger
 from automacro.workflow.conditional import ConditionalTask
-from automacro.workflow.task import WorkflowTask
-from automacro.workflow.state import WorkflowState
 from automacro.workflow.context import (
-    WorkflowContext,
-    TaskContext,
     HookContext,
+    TaskContext,
+    WorkflowContext,
     WorkflowMeta,
 )
+from automacro.workflow.errors import InvalidConditionalIndexError, InvalidTaskJumpError
 from automacro.workflow.hooks import WorkflowHooks
-from automacro.workflow.errors import InvalidTaskJumpError, InvalidConditionalIndexError
+from automacro.workflow.state import WorkflowState
+from automacro.workflow.task import WorkflowTask
 
 
 class Workflow:
@@ -344,15 +344,14 @@ class Workflow:
             else None
         )
 
-        prev_idx = self._current_task_idx
         next_idx = self._current_task_idx + 1
 
         # We are at the end of the task list
-        if next_idx >= len(self._tasks) or prev_idx == -1:
+        if next_idx >= len(self._tasks) or self._current_task_idx == -1:
             return self._on_iteration_end()
 
         # Otherwise, move to the next task
-        runtime.prev_task_idx = prev_idx
+        runtime.prev_task_idx = self._current_task_idx
         runtime.current_task_idx = next_idx
         self._current_task_idx = next_idx
 
@@ -419,6 +418,91 @@ class Workflow:
             current,
             self._make_hook_context(),
         )
+
+        # Notify in case the workflow is waiting
+        self._cond.notify_all()
+
+    def _pause(self):
+        """
+        Internal method to pause the workflow.
+
+        Some hooks may still be invoked while the workflow is paused. These
+        hooks are:
+        - `on_iteration_start`
+        - `on_iteration_end`
+
+        Note: This method must be called while holding the workflow lock.
+        """
+
+        if not self._is_running():
+            self._logger.warning(self._prefix_log("Workflow is not running"))
+            return
+
+        if self._state != WorkflowState.RUNNING:
+            return
+
+        self._state = WorkflowState.PAUSED
+        self._logger.info(self._prefix_log("Workflow paused"))
+
+        self._run_hook(
+            self._hooks.on_pause,
+            self._make_hook_context(),
+        )
+
+    def _resume(self):
+        """
+        Internal method to resume the workflow.
+
+        NOTE: This method must be called while holding the workflow lock.
+        """
+
+        if not self._is_running():
+            self._logger.warning(self._prefix_log("Workflow is not running"))
+            return
+
+        if self._state != WorkflowState.PAUSED:
+            return
+
+        self._state = WorkflowState.RUNNING
+
+        self._logger.info(self._prefix_log("Workflow resumed"))
+
+        self._run_hook(
+            self._hooks.on_resume,
+            self._make_hook_context(),
+        )
+        self._cond.notify_all()
+
+    def _toggle(self):
+        """
+        Internal method to toggle the workflow between paused and running
+        states.
+
+        NOTE: This method must be called while holding the workflow lock.
+        """
+
+        if not self._is_running():
+            self._logger.warning(self._prefix_log("Workflow is not running"))
+            return
+
+        if self._state == WorkflowState.PAUSED:
+            self._resume()
+        else:
+            self._pause()
+
+    def _end_iteration(self):
+        """
+        Internal method to end the current iteration.
+        """
+
+        if not self._is_running():
+            self._logger.warning(self._prefix_log("Workflow is not running"))
+            return
+
+        # Stop the current task
+        self._stop_current_task()
+
+        self._on_iteration_end()
 
         # Notify in case the workflow is waiting
         self._cond.notify_all()
@@ -594,10 +678,10 @@ class Workflow:
                     # blocking other operations
                     task.run(self._make_task_context())
                 except Exception as e:
-                    self._logger.exception(
-                        self._prefix_log(f"Exception in task {task.name}: {e}")
-                    )
                     with self._cond:
+                        self._logger.exception(
+                            self._prefix_log(f"Exception in task {task.name}: {e}")
+                        )
                         self._stop()
                         break
 
@@ -703,6 +787,7 @@ class Workflow:
                 return
 
             if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
             self._extern_req = True
@@ -718,6 +803,7 @@ class Workflow:
                 return
 
             if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
             self._extern_req = True
@@ -738,6 +824,7 @@ class Workflow:
                 return
 
             if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
             try:
@@ -760,16 +847,11 @@ class Workflow:
                 return
 
             if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
             self._extern_req = True
-            # Stop the current task
-            self._stop_current_task()
-
-            self._on_iteration_end()
-
-            # Notify in case the workflow is waiting
-            self._cond.notify_all()
+            self._end_iteration()
 
     def pause(self):
         """
@@ -786,16 +868,11 @@ class Workflow:
             if self._check_in_hook("pause"):
                 return
 
-            if self._state != WorkflowState.RUNNING:
+            if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
-            self._state = WorkflowState.PAUSED
-            self._logger.info(self._prefix_log("Workflow paused"))
-
-            self._run_hook(
-                self._hooks.on_pause,
-                self._make_hook_context(),
-            )
+            self._pause()
 
     def resume(self):
         """
@@ -806,18 +883,11 @@ class Workflow:
             if self._check_in_hook("resume"):
                 return
 
-            if self._state != WorkflowState.PAUSED:
+            if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
                 return
 
-            self._state = WorkflowState.RUNNING
-
-            self._logger.info(self._prefix_log("Workflow resumed"))
-
-            self._run_hook(
-                self._hooks.on_resume,
-                self._make_hook_context(),
-            )
-            self._cond.notify_all()
+            self._resume()
 
     def toggle(self):
         """
@@ -828,25 +898,11 @@ class Workflow:
             if self._check_in_hook("toggle"):
                 return
 
-            if self._state == WorkflowState.PAUSED:
-                self._state = WorkflowState.RUNNING
+            if not self._is_running():
+                self._logger.warning(self._prefix_log("Workflow is not running"))
+                return
 
-                self._logger.info(self._prefix_log("Workflow resumed"))
-
-                self._run_hook(
-                    self._hooks.on_resume,
-                    self._make_hook_context(),
-                )
-                self._cond.notify_all()
-            elif self._state == WorkflowState.RUNNING:
-                self._state = WorkflowState.PAUSED
-
-                self._logger.info(self._prefix_log("Workflow paused"))
-
-                self._run_hook(
-                    self._hooks.on_pause,
-                    self._make_hook_context(),
-                )
+            self._toggle()
 
     def is_running(self) -> bool:
         """
