@@ -10,13 +10,12 @@ class OCRBackend(ABC):
     """
 
     @abstractmethod
-    def read_text(self, image: Image.Image, **kwargs) -> str:
+    def read_text(self, image: Image.Image) -> str:
         """
         Extract text from the given image using OCR.
 
         Args:
             image (PIL.Image.Image): The image to perform OCR on.
-            kwargs: Additional keyword arguments for OCR processing.
         """
 
         ...
@@ -28,7 +27,6 @@ class OCRBackend(ABC):
         *,
         exact: bool = False,
         case_sensitive: bool = False,
-        **kwargs,
     ) -> bool:
         """
         Check if the specified text is present in the OCR-extracted text from
@@ -41,10 +39,9 @@ class OCRBackend(ABC):
             if the text is a substring of the extracted text. Default is False.
             case_sensitive (bool): Whether the text search should be
             case-sensitive. Default is False.
-            kwargs: Additional keyword arguments for OCR processing.
         """
 
-        extracted_text = self.read_text(image, **kwargs)
+        extracted_text = self.read_text(image)
 
         if not case_sensitive:
             text = text.lower()
@@ -55,7 +52,7 @@ class OCRBackend(ABC):
 
         return text in extracted_text
 
-    def matches_text(self, image: Image.Image, pattern: str, **kwargs) -> bool:
+    def matches_text(self, image: Image.Image, pattern: str) -> bool:
         """
         Check if the specified pattern matches any part of the OCR-extracted
         text from the image.
@@ -63,8 +60,7 @@ class OCRBackend(ABC):
         Args:
             image (PIL.Image.Image): The image to perform OCR on.
             pattern (str): The regex pattern to search for.
-            kwargs: Additional keyword arguments for OCR processing.
         """
 
-        extracted_text = self.read_text(image, **kwargs)
+        extracted_text = self.read_text(image)
         return re.search(pattern, extracted_text) is not None

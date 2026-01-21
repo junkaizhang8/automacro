@@ -9,7 +9,7 @@ def create_backend(name: str, **kwargs) -> OCRBackend:
     install additional dependencies to use them.
 
     Available backends:
-        - "tesseract": Uses Tesseract OCR engine.
+    - "tesseract": Uses Tesseract OCR engine.
 
     Args:
         name (str): The name of the OCR backend to create. It is

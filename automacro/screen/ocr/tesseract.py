@@ -16,5 +16,5 @@ class TesseractOCR(OCRBackend):
     A Tesseract OCR backend implementation.
     """
 
-    def read_text(self, image: Image.Image, **kwargs) -> str:
-        return pytesseract.image_to_string(image, **kwargs)
+    def read_text(self, image: Image.Image) -> str:
+        return pytesseract.image_to_string(image)

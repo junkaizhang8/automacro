@@ -47,7 +47,7 @@ def use(name: str, **kwargs):
     set_backend(backend)
 
 
-def read_text(region: tuple[int, int, int, int] | None = None, **kwargs) -> str:
+def read_text(region: tuple[int, int, int, int] | None = None) -> str:
     """
     Capture a screenshot of the specified region and extract text using OCR.
 
@@ -55,7 +55,6 @@ def read_text(region: tuple[int, int, int, int] | None = None, **kwargs) -> str:
         region (tuple[int, int, int, int] | None): A region (left, top, width,
         height) to capture. If None, captures the entire screen. Default
         is None.
-        kwargs: Additional keyword arguments for the OCR backend.
 
     Returns:
         str: The extracted text from the captured image.
@@ -67,7 +66,7 @@ def read_text(region: tuple[int, int, int, int] | None = None, **kwargs) -> str:
         )
 
     image = capture(region=region)
-    return _backend.read_text(image, **kwargs)
+    return _backend.read_text(image)
 
 
 def contains_text(
@@ -76,7 +75,6 @@ def contains_text(
     region: tuple[int, int, int, int] | None = None,
     exact: bool = False,
     case_sensitive: bool = False,
-    **kwargs,
 ) -> bool:
     """
     Check if the specified text is present in the OCR-extracted text.
@@ -90,7 +88,6 @@ def contains_text(
         if the text is a substring of the extracted text. Default is False.
         case_sensitive (bool): Whether the text search should be
         case-sensitive. Default is False.
-        kwargs: Additional keyword arguments for the OCR backend.
 
     Returns:
         bool: True if the text is found, False otherwise.
@@ -103,7 +100,7 @@ def contains_text(
 
     image = capture(region=region)
     return _backend.contains_text(
-        image, text, exact=exact, case_sensitive=case_sensitive, **kwargs
+        image, text, exact=exact, case_sensitive=case_sensitive
     )
 
 
@@ -111,7 +108,6 @@ def matches_text(
     pattern: str,
     *,
     region: tuple[int, int, int, int] | None = None,
-    **kwargs,
 ) -> bool:
     """
     Check if the specified pattern matches any part of the OCR-extracted text.
@@ -123,7 +119,6 @@ def matches_text(
         is None.
         case_sensitive (bool): Whether the pattern search should be
         case-sensitive. Default is False.
-        kwargs: Additional keyword arguments for the OCR backend.
 
     Returns:
         bool: True if the pattern matches, False otherwise.
@@ -135,4 +130,4 @@ def matches_text(
         )
 
     image = capture(region=region)
-    return _backend.matches_text(image, pattern, **kwargs)
+    return _backend.matches_text(image, pattern)
