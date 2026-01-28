@@ -1,14 +1,10 @@
-from .api import set_backend, use, read_text, contains_text, matches_text
+from .api import contains_text, matches_text, read_text, set_backend
 from .base import OCRBackend
-from .factory import create_backend
-
 
 __all__ = [
-    "set_backend",
-    "use",
-    "read_text",
     "contains_text",
     "matches_text",
+    "read_text",
+    "set_backend",
     "OCRBackend",
-    "create_backend",
 ]

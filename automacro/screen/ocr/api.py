@@ -1,6 +1,5 @@
 from automacro.screen.capture import capture
 from automacro.screen.ocr.base import OCRBackend
-from automacro.screen.ocr.factory import create_backend
 
 _backend: OCRBackend | None = None
 
@@ -9,13 +8,11 @@ def set_backend(backend: OCRBackend):
     """
     Set the OCR backend to be used for text extraction from the screen.
 
-    The library contains some built-in backends, and you can also
-    make your own by implementing the OCRBackend protocol. Do note
-    that the built-in backends do not come pre-installed, so you may
-    need to install additional dependencies to use them.
-
-    Available backends:
-    - "tesseract": Uses Tesseract OCR engine.
+    The library contains some built-in backends available to be used.
+    Users may also define their own backends by inheriting the OCRBackend
+    abstract base class. Do note that dependencies for the built-in backends
+    do not come pre-installed, so they may require additional dependency
+    installations to use them.
 
     Args:
         backend (OCRBackend): An instance of the OCR backend to set.
@@ -23,28 +20,6 @@ def set_backend(backend: OCRBackend):
 
     global _backend
     _backend = backend
-
-
-def use(name: str, **kwargs):
-    """
-    Set the OCR backend by name using the factory function.
-
-    The library contains some built-in backends, and you can also
-    make your own by implementing the OCRBackend protocol. Do note
-    that the built-in backends do not come pre-installed, so you may
-    need to install additional dependencies to use them.
-
-    Available backends:
-    - "tesseract": Uses Tesseract OCR engine.
-
-    Args:
-        name (str): The name of the OCR backend to use.
-        **kwargs: Additional keyword arguments to pass to the backend
-        constructor.
-    """
-
-    backend = create_backend(name, **kwargs)
-    set_backend(backend)
 
 
 def read_text(region: tuple[int, int, int, int] | None = None) -> str:
