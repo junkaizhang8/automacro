@@ -1,8 +1,12 @@
-from concurrent.futures import ThreadPoolExecutor, Future
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor
 
 
 class ThreadPool:
+    """
+    A simple thread pool for executing tasks concurrently.
+    """
+
     def __init__(self, max_workers: int = 4):
         """
         Initialize a thread pool.
