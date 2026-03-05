@@ -1,6 +1,4 @@
-from automacro.core import ThreadPool
-from automacro.workflow import (
-    ExecutionContext,
+from .base import (
     Node,
     NodeChain,
     NodeLike,
@@ -8,14 +6,14 @@ from automacro.workflow import (
     TaskCallable,
     coerce_to_node,
 )
+from .context import ExecutionContext
 
 __all__ = [
-    "ThreadPool",
-    "ExecutionContext",
     "Node",
     "NodeChain",
     "NodeLike",
     "Task",
     "TaskCallable",
     "coerce_to_node",
+    "ExecutionContext",
 ]
