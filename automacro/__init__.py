@@ -6,6 +6,8 @@ from automacro.workflow import (
     NodeLike,
     Task,
     TaskCallable,
+    Workflow,
+    WorkflowState,
     coerce_to_node,
 )
 
@@ -17,5 +19,7 @@ __all__ = [
     "NodeLike",
     "Task",
     "TaskCallable",
+    "Workflow",
+    "WorkflowState",
     "coerce_to_node",
 ]
