@@ -3,6 +3,10 @@ import mss
 
 from automacro.screen.types import BBox
 
+# Create a single mss instance to be reused for all captures.
+# This is more efficient than creating a new instance for each capture.
+_sct = mss.mss()
+
 
 def capture(region: BBox | None = None) -> Image.Image:
     """
@@ -16,21 +20,20 @@ def capture(region: BBox | None = None) -> Image.Image:
         PIL.Image.Image: The captured screenshot image.
     """
 
-    with mss.mss() as sct:
-        monitor = (
-            sct.monitors[1]
-            if region is None
-            else {
-                "left": region[0],
-                "top": region[1],
-                "width": region[2],
-                "height": region[3],
-            }
-        )
+    monitor = (
+        _sct.monitors[1]
+        if region is None
+        else {
+            "left": region[0],
+            "top": region[1],
+            "width": region[2],
+            "height": region[3],
+        }
+    )
 
-        sct_img = sct.grab(monitor)
+    sct_img = _sct.grab(monitor)
 
-        # Convert to PIL Image
-        img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+    # Convert to PIL Image
+    img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
 
-        return img
+    return img
