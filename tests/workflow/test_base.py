@@ -178,7 +178,20 @@ def test_node_chain_flattening() -> None:
     assert len(chain3.nodes) == 3
 
 
-def test_node_run_method() -> None:
+def test_node_run_with_single_node() -> None:
+    called = False
+
+    def func() -> None:
+        nonlocal called
+        called = True
+
+    node = coerce_to_node(func)
+    node.run()
+
+    assert called is True
+
+
+def test_node_run_with_node_chain() -> None:
     results = []
 
     def s1() -> None:
