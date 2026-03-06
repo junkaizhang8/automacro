@@ -176,8 +176,6 @@ class NodeChain(Node):
 
     @override
     def _step(self, ctx: ExecutionContext) -> Node | None:
-        ctx.check_interrupt()
-
         if not self._running:
             self._running = True
             self.on_enter()

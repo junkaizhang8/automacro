@@ -42,8 +42,6 @@ class If(Node):
 
     @override
     def _step(self, ctx: ExecutionContext) -> Node | None:
-        ctx.check_interrupt()
-
         if not self._running:
             self._running = True
             self.on_enter()
@@ -153,8 +151,6 @@ class IfAndElse(Node):
 
     @override
     def _step(self, ctx: ExecutionContext) -> Node | None:
-        ctx.check_interrupt()
-
         if not self._running:
             self._running = True
             self.on_enter()
@@ -262,8 +258,6 @@ class While(Node):
 
     @override
     def _step(self, ctx: ExecutionContext) -> Node | None:
-        ctx.check_interrupt()
-
         if not self._running:
             self._running = True
             self.on_enter()
