@@ -1,6 +1,7 @@
 from automacro.core import ThreadPool
 from automacro.workflow import (
     ExecutionContext,
+    InterruptException,
     Node,
     NodeChain,
     NodeLike,
@@ -14,6 +15,7 @@ from automacro.workflow import (
 __all__ = [
     "ThreadPool",
     "ExecutionContext",
+    "InterruptException",
     "Node",
     "NodeChain",
     "NodeLike",

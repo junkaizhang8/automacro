@@ -176,6 +176,8 @@ class NodeChain(Node):
 
     @override
     def _step(self, ctx: ExecutionContext) -> Node | None:
+        ctx.check_interrupt()
+
         if not self._running:
             self._running = True
             self.on_enter()
@@ -231,6 +233,14 @@ class Task(Node, ABC):
     """
     Base class representing a unit of work that can be executed as part of a
     workflow.
+
+    A `Task` is a special type of `Node` that manages its own execution state
+    and provides a structured way to define long-running or interruptible tasks
+    within a workflow. The `step` method of a `Task` is called repeatedly until
+    it returns True, indicating that the task has completed its work.
+
+    Subclasses of `Task` must implement the `step` method to define the
+    specific logic for each step of the task's execution.
     """
 
     def __init__(self, *, name: str | None = None) -> None:

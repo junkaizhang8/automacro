@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from typing_extensions import override
 
@@ -34,33 +36,10 @@ def test_workflow_execution() -> None:
     root = NodeChain(step1, step2)
     wf = Workflow(root)
 
-    assert wf.status == WorkflowState.NOT_RUNNING
+    assert wf.state == WorkflowState.NOT_RUNNING
     wf.run()
-    assert wf.status == WorkflowState.NOT_RUNNING
+    assert wf.state == WorkflowState.NOT_RUNNING
     assert results == [1, 2]
-
-
-def test_workflow_stop() -> None:
-    class StopTask(Task):
-        def __init__(self) -> None:
-            super().__init__()
-            self.wf: Workflow | None = None
-            self.executed = False
-
-        @override
-        def step(self, ctx: ExecutionContext) -> bool:
-            self.executed = True
-            if self.wf:
-                self.wf.stop()
-            return False
-
-    task = StopTask()
-    wf = Workflow(task)
-    task.wf = wf
-
-    wf.run()
-    assert wf.status == WorkflowState.NOT_RUNNING
-    assert task.executed is True
 
 
 def test_nested_node_chain() -> None:
@@ -82,3 +61,99 @@ def test_nested_node_chain() -> None:
     wf.run()
 
     assert results == [1, 2, 3]
+
+
+def test_workflow_start_already_running() -> None:
+    # Test that calling start() while already running doesn't spawn extra threads
+    def slow_task() -> None:
+        time.sleep(0.3)
+
+    wf = Workflow(NodeChain(slow_task))
+    wf.start()
+
+    original_thread = wf._thread
+
+    # Call start again
+    wf.start()
+    assert wf._thread is original_thread
+
+    wf.join()
+
+
+def test_workflow_stop() -> None:
+    class StopTask(Task):
+        def __init__(self) -> None:
+            super().__init__()
+            self.wf: Workflow | None = None
+            self.executed = False
+
+        @override
+        def step(self, ctx: ExecutionContext) -> bool:
+            self.executed = True
+            if self.wf:
+                self.wf.stop()
+            return False
+
+    task = StopTask()
+    wf = Workflow(task)
+    task.wf = wf
+
+    wf.start()
+    wf.join()
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert task.executed is True
+
+
+def test_workflow_pause_resume() -> None:
+    results = []
+
+    def s1() -> None:
+        time.sleep(0.2)
+        results.append(1)
+
+    def s2() -> None:
+        time.sleep(0.1)
+        results.append(2)
+
+    root = NodeChain(s1, s2)
+    wf = Workflow(root)
+
+    wf.start()
+
+    # Give it a moment to start
+    time.sleep(0.1)
+
+    assert wf.state == WorkflowState.RUNNING
+
+    wf.pause()
+
+    # Give it a moment to pause
+    time.sleep(0.1)
+
+    assert wf.state == WorkflowState.PAUSED
+    assert results == [1]
+
+    wf.resume()
+
+    # Give it a moment to resume and finish
+    time.sleep(0.2)
+
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert results == [1, 2]
+
+
+def test_workflow_start_paused() -> None:
+    def dummy() -> None:
+        pass
+
+    wf = Workflow(NodeChain(dummy))
+
+    wf.start(start_paused=True)
+
+    # Give it a moment to start
+    time.sleep(0.1)
+
+    assert wf.state == WorkflowState.PAUSED
+
+    wf.stop()
+    wf.join()
