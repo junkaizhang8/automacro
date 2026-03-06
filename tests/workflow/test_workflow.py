@@ -25,7 +25,17 @@ class MockTask(Task):
         return self.steps_count >= self.steps_to_complete
 
 
-def test_workflow_execution() -> None:
+def test_workflow_single_task() -> None:
+    task = MockTask(steps_to_complete=3)
+    wf = Workflow(task)
+
+    assert wf.state == WorkflowState.NOT_RUNNING
+    wf.run()
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert task.steps_count == 3
+
+
+def test_workflow_node_chain() -> None:
     results = []
 
     def step1() -> None:
@@ -43,7 +53,7 @@ def test_workflow_execution() -> None:
     assert results == [1, 2]
 
 
-def test_nested_node_chain() -> None:
+def test_workflow_nested_node_chain() -> None:
     results = []
 
     def s1() -> None:
