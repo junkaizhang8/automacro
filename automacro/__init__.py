@@ -1,27 +1,37 @@
 from automacro.core import ThreadPool
 from automacro.workflow import (
     ExecutionContext,
+    If,
+    IfAndElse,
     InterruptException,
     Node,
     NodeChain,
     NodeLike,
     Task,
     TaskCallable,
+    While,
     Workflow,
     WorkflowState,
     coerce_to_node,
+    if_,
+    while_,
 )
 
 __all__ = [
     "ThreadPool",
     "ExecutionContext",
+    "If",
+    "IfAndElse",
     "InterruptException",
     "Node",
     "NodeChain",
     "NodeLike",
     "Task",
     "TaskCallable",
+    "While",
     "Workflow",
     "WorkflowState",
     "coerce_to_node",
+    "if_",
+    "while_",
 ]

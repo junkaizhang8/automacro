@@ -7,6 +7,7 @@ from .base import (
     coerce_to_node,
 )
 from .context import ExecutionContext
+from .control import If, IfAndElse, While, if_, while_
 from .exceptions import InterruptException
 from .workflow import Workflow, WorkflowState
 
@@ -18,6 +19,11 @@ __all__ = [
     "TaskCallable",
     "coerce_to_node",
     "ExecutionContext",
+    "If",
+    "IfAndElse",
+    "While",
+    "if_",
+    "while_",
     "InterruptException",
     "Workflow",
     "WorkflowState",
