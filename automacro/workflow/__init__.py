@@ -9,6 +9,7 @@ from .base import (
 from .context import ExecutionContext
 from .control import If, IfAndElse, While, if_, while_
 from .exceptions import InterruptException
+from .sleep import Sleep, Wait
 from .workflow import Workflow, WorkflowState
 
 __all__ = [
@@ -25,6 +26,8 @@ __all__ = [
     "if_",
     "while_",
     "InterruptException",
+    "Sleep",
+    "Wait",
     "Workflow",
     "WorkflowState",
 ]
