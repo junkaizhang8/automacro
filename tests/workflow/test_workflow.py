@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -107,12 +108,13 @@ def test_workflow_stop() -> None:
 def test_workflow_pause_resume() -> None:
     results = []
 
+    continue_event = threading.Event()
+
     def s1() -> None:
-        time.sleep(0.2)
+        continue_event.wait()
         results.append(1)
 
     def s2() -> None:
-        time.sleep(0.1)
         results.append(2)
 
     root = NodeChain(s1, s2)
@@ -125,10 +127,15 @@ def test_workflow_pause_resume() -> None:
 
     assert wf.state == WorkflowState.RUNNING
 
+    # Without checking for interrupts in s1, the workflow
+    # only pauses after s1 completes
     wf.pause()
 
+    # Allow the first step to complete
+    continue_event.set()
+
     # Give it a moment to pause
-    time.sleep(0.1)
+    time.sleep(0.2)
 
     assert wf.state == WorkflowState.PAUSED
     assert results == [1]
