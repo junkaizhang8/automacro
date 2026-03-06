@@ -194,7 +194,6 @@ class NodeChain(Node):
 
     @override
     def on_enter(self) -> None:
-        print(f"Entering node chain: {self.name}")
         self._cursor = 0
 
     @override
