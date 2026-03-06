@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from automacro.workflow.base import Node, NodeChain
+from automacro.workflow.breakpoint import Breakpoint
 from automacro.workflow.context import ExecutionContext
 from automacro.workflow.exceptions import InterruptException
 
@@ -101,8 +102,13 @@ class Workflow:
             if child is None:
                 self._stack.pop()
                 continue
-            elif child is not frame.node:
+
+            if child is not frame.node:
                 self._stack.append(_Frame(child))
+
+            if isinstance(child, Breakpoint):
+                self._pause()
+
             break
 
         return not self._stack

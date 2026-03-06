@@ -1,5 +1,6 @@
 from automacro.core import ThreadPool
 from automacro.workflow import (
+    Breakpoint,
     ExecutionContext,
     If,
     IfAndElse,
@@ -14,6 +15,7 @@ from automacro.workflow import (
     While,
     Workflow,
     WorkflowState,
+    bp,
     coerce_to_node,
     if_,
     while_,
@@ -22,6 +24,7 @@ from automacro.workflow import (
 __all__ = [
     "ThreadPool",
     "ExecutionContext",
+    "Breakpoint",
     "If",
     "IfAndElse",
     "InterruptException",
@@ -35,6 +38,7 @@ __all__ = [
     "While",
     "Workflow",
     "WorkflowState",
+    "bp",
     "coerce_to_node",
     "if_",
     "while_",

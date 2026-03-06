@@ -6,6 +6,7 @@ from .base import (
     TaskCallable,
     coerce_to_node,
 )
+from .breakpoint import Breakpoint, bp
 from .context import ExecutionContext
 from .control import If, IfAndElse, While, if_, while_
 from .exceptions import InterruptException
@@ -19,6 +20,8 @@ __all__ = [
     "Task",
     "TaskCallable",
     "coerce_to_node",
+    "Breakpoint",
+    "bp",
     "ExecutionContext",
     "If",
     "IfAndElse",
