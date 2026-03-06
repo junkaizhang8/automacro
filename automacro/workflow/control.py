@@ -4,7 +4,7 @@ from typing import Callable, Sequence, TypeAlias
 
 from typing_extensions import override
 
-from .base import ExecutionContext, Node, NodeLike, coerce_to_node
+from automacro.workflow.base import ExecutionContext, Node, NodeLike, coerce_to_node
 
 BooleanFunction: TypeAlias = Callable[[], bool]
 

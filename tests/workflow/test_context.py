@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 from typing_extensions import override
 
 from automacro import (
