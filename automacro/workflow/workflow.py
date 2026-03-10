@@ -78,8 +78,6 @@ class Workflow:
 
         self._stack: list[_Frame]
 
-        self._init_stack()
-
         self._state = WorkflowState.NOT_RUNNING
 
         self._step_request: _StepRequest | None = None
@@ -95,12 +93,23 @@ class Workflow:
         return self._state
 
     def _init_stack(self) -> None:
+        """
+        Initialize the execution stack with the root node of the workflow. This
+        should be called at the beginning of the workflow's execution to set up
+        the initial state of the stack.
+        """
+
         self._stack = [_Frame(self._node)]
 
         if isinstance(self._node, NodeChain):
             child = self._node._step(self._ctx)
             if child is not None and child is not self._node:
                 self._stack.append(_Frame(child))
+
+                if isinstance(child, Breakpoint):
+                    self._pause()
+        elif isinstance(self._node, Breakpoint):
+            self._pause()
 
     def _set_step_request(self, kind: _StepKind) -> threading.Event | None:
         """
@@ -297,6 +306,7 @@ class Workflow:
         """
 
         self._state = WorkflowState.PAUSED if start_paused else WorkflowState.RUNNING
+        self._init_stack()
         self._step_request = None
         self._executing_node = not start_paused
 
