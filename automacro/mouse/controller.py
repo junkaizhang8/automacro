@@ -1,11 +1,11 @@
-from typing import Callable
 import time
+from typing import Callable
 
 from pynput.mouse import Controller
 
-from automacro.screen.coordinates import get_screen_size
 from automacro.animate import easing, interpolate_sequence
 from automacro.mouse.mouse_button import MouseButton
+from automacro.screen.coordinates import get_screen_size
 
 
 def _clamp_to_screen_bounds(x: int, y: int) -> tuple[int, int]:
@@ -38,19 +38,6 @@ class MouseController:
 
         self._controller = None
 
-    def get_position(self) -> tuple[int, int]:
-        """
-        Get the current position of the mouse.
-
-        Returns:
-            tuple[int, int]: The (x, y) coordinates of the mouse.
-        """
-
-        if not self._controller:
-            self._controller = Controller()
-        x, y = self._controller.position
-        return int(x), int(y)
-
     def _move_to(
         self,
         x: int,
@@ -77,16 +64,16 @@ class MouseController:
             self._controller.position = _clamp_to_screen_bounds(x, y)
             return
 
-        start = tuple(float(coord) for coord in self.get_position())
+        start = tuple(float(coord) for coord in self.position)
         end = tuple(float(coord) for coord in _clamp_to_screen_bounds(x, y))
 
         fps = 120.0
         delay = 1.0 / fps
 
-        t0 = time.time()
+        t0 = time.monotonic()
 
         while True:
-            t = time.time() - t0
+            t = time.monotonic() - t0
 
             x_pos, y_pos = interpolate_sequence(start, end, t, duration, easing_fn)
 
@@ -96,6 +83,17 @@ class MouseController:
                 break
 
             time.sleep(delay)
+
+    @property
+    def position(self) -> tuple[int, int]:
+        """
+        Current (x, y) position of the mouse.
+        """
+
+        if not self._controller:
+            self._controller = Controller()
+        x, y = self._controller.position
+        return int(x), int(y)
 
     def move_to(
         self,
@@ -143,7 +141,7 @@ class MouseController:
             the movement. Default is linear.
         """
 
-        x, y = self.get_position()
+        x, y = self.position
         self._move_to(x + dx, y + dy, duration, easing_fn)
 
     def press(self, button: MouseButton):
