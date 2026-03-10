@@ -184,9 +184,9 @@ def test_nested_control_flow() -> None:
     """
     while i < 2:
       if i == 0:
-        append "zero"
+        append 0
       else:
-        append "one"
+        append 1
       i += 1
     """
 
@@ -201,14 +201,12 @@ def test_nested_control_flow() -> None:
         i += 1
 
     inner_if = (
-        if_(cond_if)
-        .then_(lambda: results.append("zero"))
-        .else_(lambda: results.append("one"))
+        if_(cond_if).then_(lambda: results.append(0)).else_(lambda: results.append(1))
     )
 
     loop = while_(cond_while).do_(inner_if | incr)
 
     loop.run()
 
-    assert results == ["zero", "one"]
+    assert results == [0, 1]
     assert i == 2
