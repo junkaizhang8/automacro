@@ -158,41 +158,42 @@ class Workflow:
         the caller. The caller is responsible for catching `InterruptException`
         and pausing the workflow as necessary.
 
-        This method does not perform any state checks, so it assumes that the
-        workflow is currently running and that the caller has already acquired
-        the necessary locks.
-
         Returns:
             bool: True if execution is complete, or False if there are more
             steps to execute.
         """
 
-        while self._stack:
-            frame = self._stack[-1]
-            node = frame.node
+        while True:
+            with self._cond:
+                if not self._stack:
+                    return True
+
+                frame = self._stack[-1]
+                node = frame.node
 
             child = node._step(self._ctx)
 
-            if (
-                child is not None
-                and not isinstance(child, NodeChain)
-                and self._step_request is not None
-            ):
-                self._step_request.steps_executed += 1
+            with self._cond:
+                if not self._stack:
+                    return True
 
-            if child is None:
-                self._stack.pop()
-                with self._cond:
+                if (
+                    child is not None
+                    and not isinstance(child, NodeChain)
+                    and self._step_request is not None
+                ):
+                    self._step_request.steps_executed += 1
+
+                if child is None:
+                    self._stack.pop()
                     self._check_step_request_with_depth()
-                continue
+                    continue
 
-            if child is not frame.node:
-                self._stack.append(_Frame(child))
-                with self._cond:
+                if child is not frame.node:
+                    self._stack.append(_Frame(child))
                     self._check_step_request_with_depth()
 
-            if isinstance(child, Breakpoint):
-                with self._cond:
+                if isinstance(child, Breakpoint):
                     self._pause()
 
             break
@@ -290,7 +291,7 @@ class Workflow:
         if self._state == WorkflowState.PAUSED:
             self._ctx._resume()
             self._state = WorkflowState.RUNNING
-            self._executing_node = False
+            self._executing_node = True
             self._cond.notify_all()
 
     def _on_enter(self, start_paused: bool) -> None:
