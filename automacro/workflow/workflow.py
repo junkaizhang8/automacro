@@ -267,6 +267,21 @@ class Workflow:
             self._step_request = None
             self._pause()
 
+    def _unwind_stack(self) -> None:
+        """
+        Internal method to unwind the execution stack. This is used when
+        stopping or restarting the workflow to ensure that all nodes are
+        properly exited and that the stack is cleared.
+
+        This method does not acquire any locks, so it assumes that the caller
+        has already acquired the necessary locks before calling it.
+        """
+
+        while self._stack:
+            frame = self._stack.pop()
+            frame.node.on_exit()
+            frame.node._running = False
+
     def _pause(self) -> None:
         """
         Internal method to pause the workflow.
@@ -322,6 +337,9 @@ class Workflow:
         # Notify any pending step request that execution is complete
         if self._step_request is not None and self._step_request.done is not None:
             self._step_request.done.set()
+
+        # Unwind the stack to ensure that all nodes are properly exited
+        self._unwind_stack()
 
         self._step_request = None
         self._state = WorkflowState.NOT_RUNNING
@@ -473,12 +491,7 @@ class Workflow:
             if self._state != WorkflowState.PAUSED:
                 return
 
-            # When restarting, we want to exit all nodes in the current stack,
-            # and then re-enter the root node
-            while self._stack:
-                frame = self._stack.pop()
-                frame.node.on_exit()
-                frame.node._running = False
+            self._unwind_stack()
 
             self._init_stack()
             self._step_request = None
