@@ -12,7 +12,7 @@ from automacro import (
 )
 
 
-def test_execution_context_check_interrupt() -> None:
+def test_check_interrupt_raises_interrupt_exception() -> None:
     ctx = ExecutionContext()
     assert not ctx._interrupt_event.is_set()
     # No interrupt, so this should not raise

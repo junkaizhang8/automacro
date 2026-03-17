@@ -1,5 +1,3 @@
-import time
-
 import pytest
 from conftest import wait_until
 
@@ -92,3 +90,56 @@ def test_multiple_consecutive_breakpoints() -> None:
 
     assert wf.state == WorkflowState.NOT_RUNNING
     assert results == [1, 2]
+
+
+def test_breakpoint_as_first_node_in_chain() -> None:
+    results = []
+
+    chain = bp() | (lambda: results.append(1)) | (lambda: results.append(2))
+
+    wf = Workflow(chain)
+
+    wf.start()
+
+    # Wait for breakpoint
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
+    assert results == []
+
+    wf.resume()
+    wf.join()
+
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert results == [1, 2]
+
+
+def test_breakpoint_as_last_node_in_chain() -> None:
+    results = []
+
+    chain = (lambda: results.append(1)) | ((lambda: results.append(2)) | bp())
+
+    wf = Workflow(chain)
+
+    wf.start()
+
+    # Wait for it to hit the breakpoint
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
+    assert results == [1, 2]
+
+    wf.resume()
+    wf.join()
+
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert results == [1, 2]
+
+
+def test_breakpoint_as_only_node() -> None:
+    wf = Workflow(bp())
+
+    wf.start()
+
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
+
+    wf.resume()
+    wf.join()
+
+    assert wf.state == WorkflowState.NOT_RUNNING
