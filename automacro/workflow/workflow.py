@@ -19,6 +19,8 @@ class WorkflowState(Enum):
     NOT_RUNNING = auto()
     RUNNING = auto()
     PAUSED = auto()
+    STOPPING = auto()
+    PAUSING = auto()
 
 
 class _StepKind(Enum):
@@ -81,8 +83,6 @@ class Workflow:
         self._state = WorkflowState.NOT_RUNNING
 
         self._step_request: _StepRequest | None = None
-
-        self._executing_node = False
 
         self._cond = threading.Condition()
 
@@ -292,8 +292,7 @@ class Workflow:
 
         if self._state == WorkflowState.RUNNING:
             self._ctx._pause()
-            self._state = WorkflowState.PAUSED
-            self._cond.notify_all()
+            self._state = WorkflowState.PAUSING
 
     def _resume(self) -> None:
         """
@@ -306,7 +305,6 @@ class Workflow:
         if self._state == WorkflowState.PAUSED:
             self._ctx._resume()
             self._state = WorkflowState.RUNNING
-            self._executing_node = True
             self._cond.notify_all()
 
     def _on_enter(self, start_paused: bool) -> None:
@@ -324,7 +322,6 @@ class Workflow:
         self._state = WorkflowState.PAUSED if start_paused else WorkflowState.RUNNING
         self._init_stack()
         self._step_request = None
-        self._executing_node = not start_paused
 
     def _on_exit(self) -> None:
         """
@@ -367,14 +364,14 @@ class Workflow:
 
         while True:
             with self._cond:
-                while self._state == WorkflowState.PAUSED:
-                    self._executing_node = False
-                    # Notify any waiting threads that we are paused, and then
-                    # wait until we are resumed again
+                if self._state == WorkflowState.PAUSING:
+                    self._state = WorkflowState.PAUSED
                     self._cond.notify_all()
+
+                while self._state == WorkflowState.PAUSED:
                     self._cond.wait()
 
-                if self._state == WorkflowState.NOT_RUNNING:
+                if self._state in (WorkflowState.NOT_RUNNING, WorkflowState.STOPPING):
                     break
 
             try:
@@ -441,8 +438,7 @@ class Workflow:
         with self._cond:
             if self._state != WorkflowState.NOT_RUNNING:
                 self._ctx._resume()
-                self._state = WorkflowState.NOT_RUNNING
-                self._executing_node = False
+                self._state = WorkflowState.STOPPING
                 self._cond.notify_all()
 
         if block and self._thread is not None:
@@ -463,7 +459,7 @@ class Workflow:
                 self._pause()
 
                 if block:
-                    while self._executing_node:
+                    while self._state == WorkflowState.PAUSING:
                         self._cond.wait()
 
     def resume(self) -> None:

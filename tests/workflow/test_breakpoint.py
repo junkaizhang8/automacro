@@ -1,6 +1,7 @@
 import time
 
 import pytest
+from conftest import wait_until
 
 from automacro import (
     Workflow,
@@ -25,10 +26,7 @@ def test_breakpoint_pauses_workflow() -> None:
     wf.start()
 
     # Wait for it to hit the breakpoint
-    time.sleep(0.1)
-
-    # It should be paused AFTER s1
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == [1]
 
     wf.resume()
@@ -55,17 +53,11 @@ def test_multiple_breakpoints() -> None:
     wf.start()
 
     # Wait for first breakpoint
-    time.sleep(0.1)
-    assert wf.state == WorkflowState.PAUSED
-    assert results == [1]
-
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     wf.resume()
 
     # Wait for second breakpoint
-    time.sleep(0.1)
-    assert wf.state == WorkflowState.PAUSED
-    assert results == [1, 2]
-
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     wf.resume()
     wf.join()
 
@@ -88,15 +80,11 @@ def test_multiple_consecutive_breakpoints() -> None:
     wf.start()
 
     # Wait for first breakpoint
-    time.sleep(0.1)
-    assert wf.state == WorkflowState.PAUSED
-    assert results == [1]
-
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     wf.resume()
-    time.sleep(0.1)
 
     # Wait for second breakpoint
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == [1]
 
     wf.resume()

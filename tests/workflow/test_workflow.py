@@ -1,8 +1,7 @@
 import threading
-import time
 
 import pytest
-from typing_extensions import override
+from conftest import wait_until
 
 from automacro import (
     ExecutionContext,
@@ -17,20 +16,19 @@ from automacro import (
 )
 
 
-class MockTask(Task):
+class DummyTask(Task):
     def __init__(self, steps_to_complete: int = 1, name: str | None = None) -> None:
         super().__init__(name=name)
         self.steps_to_complete = steps_to_complete
         self.steps_count = 0
 
-    @override
     def step(self, ctx: ExecutionContext) -> bool:
         self.steps_count += 1
         return self.steps_count >= self.steps_to_complete
 
 
-def test_workflow_single_task() -> None:
-    task = MockTask(steps_to_complete=3)
+def test_workflow_executes_single_task() -> None:
+    task = DummyTask(steps_to_complete=3)
     wf = Workflow(task)
 
     assert wf.state == WorkflowState.NOT_RUNNING
@@ -39,7 +37,7 @@ def test_workflow_single_task() -> None:
     assert task.steps_count == 3
 
 
-def test_workflow_node_chain() -> None:
+def test_workflow_executes_node_chain() -> None:
     results = []
 
     def step1() -> None:
@@ -57,12 +55,14 @@ def test_workflow_node_chain() -> None:
     assert results == [1, 2]
 
 
-def test_workflow_start_already_running() -> None:
-    # Test that calling start() while already running doesn't spawn extra threads
-    def slow_task() -> None:
-        time.sleep(0.3)
+def test_workflow_start_does_not_spawn_second_thread() -> None:
+    continue_event = threading.Event()
 
-    wf = Workflow(NodeChain(slow_task))
+    # Test that calling start() while already running doesn't spawn extra threads
+    def func() -> None:
+        continue_event.wait()
+
+    wf = Workflow(NodeChain(func))
     wf.start()
 
     original_thread = wf._thread
@@ -71,6 +71,8 @@ def test_workflow_start_already_running() -> None:
     wf.start()
     assert wf._thread is original_thread
 
+    # Allow the thread to finish
+    continue_event.set()
     wf.join()
 
 
@@ -81,7 +83,6 @@ def test_workflow_stop() -> None:
             self.wf: Workflow | None = None
             self.executed = False
 
-        @override
         def step(self, ctx: ExecutionContext) -> bool:
             self.executed = True
             if self.wf:
@@ -100,7 +101,6 @@ def test_workflow_stop() -> None:
 
 def test_workflow_pause_resume() -> None:
     results = []
-
     continue_event = threading.Event()
 
     def step1() -> None:
@@ -115,10 +115,7 @@ def test_workflow_pause_resume() -> None:
 
     wf.start()
 
-    # Give it a moment to start
-    time.sleep(0.1)
-
-    assert wf.state == WorkflowState.RUNNING
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
 
     # Without checking for interrupts in s1, the workflow
     # only pauses after s1 completes
@@ -128,17 +125,12 @@ def test_workflow_pause_resume() -> None:
     continue_event.set()
 
     # Give it a moment to pause
-    time.sleep(0.2)
-
+    wait_until(lambda: results == [1])
     assert wf.state == WorkflowState.PAUSED
-    assert results == [1]
 
     wf.resume()
 
-    # Give it a moment to resume and finish
-    time.sleep(0.2)
-
-    assert wf.state == WorkflowState.NOT_RUNNING
+    wait_until(lambda: wf.state == WorkflowState.NOT_RUNNING)
     assert results == [1, 2]
 
 
@@ -150,10 +142,7 @@ def test_workflow_start_paused() -> None:
 
     wf.start(start_paused=True)
 
-    # Give it a moment to start
-    time.sleep(0.1)
-
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
 
     wf.stop()
 
@@ -171,21 +160,17 @@ def test_workflow_restart() -> None:
     wf = Workflow(chain)
 
     wf.start()
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == [1]
 
     wf.restart()
     wf.resume()
 
-    time.sleep(0.1)
-
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == [1, 1]
 
     wf.resume()
-    time.sleep(0.1)
 
     wf.join()
 
@@ -197,9 +182,8 @@ def test_workflow_step_in_empty() -> None:
     wf = Workflow(NodeChain())
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
 
     wf.step_in()
 
@@ -217,9 +201,8 @@ def test_workflow_step_in_lambda() -> None:
     wf = Workflow(coerce_to_node(step))
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_in()
@@ -243,9 +226,8 @@ def test_workflow_step_in_lambda_chain() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_in()
@@ -262,12 +244,12 @@ def test_workflow_step_in_lambda_chain() -> None:
 
 
 def test_workflow_step_in_task() -> None:
-    task = MockTask(steps_to_complete=2)
+    task = DummyTask(steps_to_complete=2)
     wf = Workflow(task)
 
     wf.start(start_paused=True)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task.steps_count == 0
 
     wf.step_in()
@@ -284,15 +266,14 @@ def test_workflow_step_in_task() -> None:
 
 
 def test_workflow_step_in_task_chain() -> None:
-    task1 = MockTask(steps_to_complete=2)
-    task2 = MockTask(steps_to_complete=1)
+    task1 = DummyTask(steps_to_complete=2)
+    task2 = DummyTask(steps_to_complete=1)
     chain = task1 | task2
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task1.steps_count == 0
     assert task2.steps_count == 0
 
@@ -336,9 +317,8 @@ def test_workflow_step_in_if_true() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -376,9 +356,8 @@ def test_workflow_step_in_if_false() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -425,9 +404,8 @@ def test_workflow_step_in_if_elif_else() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition1_called is False
     assert condition2_called is False
     assert results == []
@@ -473,9 +451,8 @@ def test_workflow_step_in_while() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert i == 0
 
@@ -529,9 +506,8 @@ def test_workflow_step_in_while_zero_iterations() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert body_called is False
 
@@ -593,9 +569,8 @@ def test_workflow_step_in_nested_control_flow() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
     assert start_called is False
     assert end_called is False
@@ -720,9 +695,8 @@ def test_workflow_step_over_empty() -> None:
     wf = Workflow(NodeChain())
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
 
     wf.step_over()
 
@@ -740,9 +714,8 @@ def test_workflow_step_over_lambda() -> None:
     wf = Workflow(coerce_to_node(step))
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_over()
@@ -766,9 +739,8 @@ def test_workflow_step_over_lambda_chain() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_over()
@@ -785,13 +757,12 @@ def test_workflow_step_over_lambda_chain() -> None:
 
 
 def test_workflow_step_over_task() -> None:
-    task = MockTask(steps_to_complete=2)
+    task = DummyTask(steps_to_complete=2)
     wf = Workflow(task)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task.steps_count == 0
 
     wf.step_over()
@@ -803,15 +774,14 @@ def test_workflow_step_over_task() -> None:
 
 
 def test_workflow_step_over_task_chain() -> None:
-    task1 = MockTask(steps_to_complete=2)
-    task2 = MockTask(steps_to_complete=1)
+    task1 = DummyTask(steps_to_complete=2)
+    task2 = DummyTask(steps_to_complete=1)
     chain = task1 | task2
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task1.steps_count == 0
     assert task2.steps_count == 0
 
@@ -849,9 +819,8 @@ def test_workflow_step_over_if_true() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -883,9 +852,8 @@ def test_workflow_step_over_if_false() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -926,9 +894,8 @@ def test_workflow_step_over_if_elif_else() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition1_called is False
     assert condition2_called is False
     assert results == []
@@ -960,9 +927,8 @@ def test_workflow_step_over_while() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert i == 0
 
@@ -992,9 +958,8 @@ def test_workflow_step_over_while_zero_iterations() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert body_called is False
 
@@ -1056,9 +1021,8 @@ def test_workflow_step_over_nested_control_flow() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
     assert start_called is False
     assert end_called is False
@@ -1103,9 +1067,8 @@ def test_workflow_step_out_empty() -> None:
     wf = Workflow(NodeChain())
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
 
     wf.step_out()
 
@@ -1123,9 +1086,8 @@ def test_workflow_step_out_lambda() -> None:
     wf = Workflow(coerce_to_node(step))
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_out()
@@ -1149,9 +1111,8 @@ def test_workflow_step_out_lambda_chain() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
 
     wf.step_out()
@@ -1163,13 +1124,12 @@ def test_workflow_step_out_lambda_chain() -> None:
 
 
 def test_workflow_step_out_task() -> None:
-    task = MockTask(steps_to_complete=2)
+    task = DummyTask(steps_to_complete=2)
     wf = Workflow(task)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task.steps_count == 0
 
     wf.step_out()
@@ -1181,15 +1141,14 @@ def test_workflow_step_out_task() -> None:
 
 
 def test_workflow_step_out_task_chain() -> None:
-    task1 = MockTask(steps_to_complete=2)
-    task2 = MockTask(steps_to_complete=1)
+    task1 = DummyTask(steps_to_complete=2)
+    task2 = DummyTask(steps_to_complete=1)
     chain = task1 | task2
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert task1.steps_count == 0
     assert task2.steps_count == 0
 
@@ -1221,9 +1180,8 @@ def test_workflow_step_out_if_true() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -1255,9 +1213,8 @@ def test_workflow_step_out_if_false() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -1298,9 +1255,8 @@ def test_workflow_step_out_if_elif_else() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition1_called is False
     assert condition2_called is False
     assert results == []
@@ -1340,9 +1296,8 @@ def test_workflow_step_out_if_body() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_called is False
     assert results == []
 
@@ -1384,9 +1339,8 @@ def test_workflow_step_out_while() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert i == 0
 
@@ -1416,9 +1370,8 @@ def test_workflow_step_out_while_zero_iterations() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert body_called is False
 
@@ -1448,9 +1401,8 @@ def test_workflow_step_out_while_body() -> None:
     wf = Workflow(node)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert condition_call_counter == 0
     assert i == 0
 
@@ -1548,9 +1500,8 @@ def test_workflow_step_out_nested_control_flow() -> None:
     wf = Workflow(chain)
 
     wf.start(start_paused=True)
-    time.sleep(0.1)
 
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert results == []
     assert start_called is False
     assert end_called is False

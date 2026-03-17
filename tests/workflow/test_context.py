@@ -1,7 +1,7 @@
-import time
+import threading
 
 import pytest
-from typing_extensions import override
+from conftest import wait_until
 
 from automacro import (
     ExecutionContext,
@@ -32,13 +32,13 @@ def test_execution_context_check_interrupt() -> None:
 
 def test_check_interrupt_in_task() -> None:
     completed = False
+    continue_event = threading.Event()
 
     class InterruptingTask(Task):
-        @override
         def step(self, ctx: ExecutionContext) -> bool:
             nonlocal completed
 
-            time.sleep(0.2)
+            continue_event.wait()
             ctx.check_interrupt()
             completed = True
             return True
@@ -47,25 +47,18 @@ def test_check_interrupt_in_task() -> None:
     wf = Workflow(task)
     wf.start()
 
-    # Let the task start and execute for a bit
-    time.sleep(0.1)
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
 
-    # Pause the workflow, which will set the interrupt event and cause the
-    # task to raise an InterruptException when it calls check_interrupt()
+    # Pause the workflow and notify the workflow thread to continue, causing
+    # the task to raise an InterruptException when it calls check_interrupt()
     wf.pause()
+    continue_event.set()
 
-    # Wait a moment to ensure the interrupt is processed
-    time.sleep(0.2)
-
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert completed is False
 
     # Now resume it (which should restart the task) and let it complete
     wf.resume()
-
-    # Give it a moment to start and execute the step
-    time.sleep(0.3)
-
     wf.join()
 
     assert wf.state == WorkflowState.NOT_RUNNING
@@ -76,7 +69,6 @@ def test_wait_in_task() -> None:
     completed = False
 
     class WaitingTask(Task):
-        @override
         def step(self, ctx: ExecutionContext) -> bool:
             nonlocal completed
 
@@ -88,21 +80,16 @@ def test_wait_in_task() -> None:
     wf = Workflow(task)
     wf.start()
 
-    time.sleep(0.1)
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
 
     # Pause the workflow, which will set the interrupt event and cause the
     # task to raise an InterruptException during the wait
     wf.pause()
 
-    time.sleep(0.1)
-
-    assert wf.state == WorkflowState.PAUSED
+    wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert completed is False
 
     wf.resume()
-
-    time.sleep(0.3)
-
     wf.join()
 
     assert wf.state == WorkflowState.NOT_RUNNING
@@ -113,7 +100,6 @@ def test_sleep_in_task() -> None:
     completed = False
 
     class SleepingTask(Task):
-        @override
         def step(self, ctx: ExecutionContext) -> bool:
             nonlocal completed
 
@@ -125,14 +111,11 @@ def test_sleep_in_task() -> None:
     wf = Workflow(task)
     wf.start()
 
-    time.sleep(0.1)
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
 
     # Pause the workflow, which should have no effect on the sleep since
     # it is not interruptible
     wf.pause()
-
-    time.sleep(0.2)
-
     wf.join()
 
     assert wf.state == WorkflowState.NOT_RUNNING

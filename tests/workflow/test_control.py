@@ -3,6 +3,7 @@ import pytest
 from automacro import (
     if_,
     while_,
+    coerce_to_node,
 )
 
 
@@ -148,6 +149,31 @@ def test_if_elif_else_multiple_elifs() -> None:
     assert results == ["elif2"]
 
 
+def test_if_elif_no_else_none_true() -> None:
+    results = []
+
+    node = (
+        if_(lambda: False)
+        .then_(lambda: results.append("if"))
+        .elif_(lambda: False)
+        .then_(lambda: results.append("elif"))
+    )
+
+    node.run()
+    assert results == []
+
+
+def test_if_node_can_run_twice() -> None:
+    results = []
+
+    node = if_(lambda: True).then_(lambda: results.append(1))
+
+    node.run()
+    node.run()
+
+    assert results == [1, 1]
+
+
 def test_while_loop() -> None:
     results = []
     count = 0
@@ -175,6 +201,65 @@ def test_while_loop_zero_iterations() -> None:
     node.run()
 
     assert results == []
+
+
+def test_nested_while_loops() -> None:
+    results = []
+
+    i = 0
+    j = 0
+
+    def outer_cond() -> bool:
+        return i < 2
+
+    def inner_cond() -> bool:
+        return j < 2
+
+    def append():
+        results.append((i, j))
+
+    def incr_j():
+        nonlocal j
+        j += 1
+
+    def reset_j():
+        nonlocal j
+        j = 0
+
+    def incr_i():
+        nonlocal i
+        i += 1
+
+    inner = while_(inner_cond).do_(coerce_to_node(append) | incr_j)
+
+    outer = while_(outer_cond).do_(inner | reset_j | incr_i)
+
+    outer.run()
+
+    assert results == [(0, 0), (0, 1), (1, 0), (1, 1)]
+
+
+def test_while_node_runs_twice() -> None:
+    results = []
+    count = 0
+
+    def cond() -> bool:
+        nonlocal count
+        return count < 2
+
+    def action():
+        nonlocal count
+        results.append(count)
+        count += 1
+
+    node = while_(cond).do_(action)
+
+    node.run()
+
+    count = 0
+    node.run()
+
+    assert results == [0, 1, 0, 1]
 
 
 def test_nested_control_flow() -> None:
@@ -210,3 +295,4 @@ def test_nested_control_flow() -> None:
 
     assert results == [0, 1]
     assert i == 2
+
