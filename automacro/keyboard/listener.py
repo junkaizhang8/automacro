@@ -1,13 +1,13 @@
-from typing import Callable
 import itertools
+from typing import Callable
 
 from pynput.keyboard import Listener
 
-from automacro.utils import _get_logger
 from automacro.core import ThreadPool
+from automacro.keyboard.char import unshift_char
 from automacro.keyboard.key import Key, ModifierKey
 from automacro.keyboard.key_sequence import KeySequence
-from automacro.keyboard.char import unshift_char
+from automacro.utils import _get_logger
 
 
 class KeyListener:

@@ -1,5 +1,5 @@
-from PIL import Image
 import mss
+from PIL import Image
 
 from automacro.screen.types import BBox
 

@@ -2,9 +2,9 @@ from typing import Callable
 
 from pynput.mouse import Button, Listener
 
-from automacro.utils import _get_logger
 from automacro.core import ThreadPool
 from automacro.mouse.mouse_button import MouseButton
+from automacro.utils import _get_logger
 
 
 class MouseListener:

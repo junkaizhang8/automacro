@@ -2,8 +2,8 @@ from typing import Tuple
 
 from pynput.keyboard import Key as PynputKey
 
-from automacro.keyboard.key import Key, ModifierKey, stringify_modifiers
 from automacro.keyboard.char import unshift_char
+from automacro.keyboard.key import Key, ModifierKey, stringify_modifiers
 
 
 class KeySequence:

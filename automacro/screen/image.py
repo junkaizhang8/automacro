@@ -4,8 +4,8 @@ from PIL import Image
 
 # PyAutoGUI uses physical coordinates for pixel operations, so we need to
 # rescale coordinates accordingly.
-from automacro.screen.coordinates import scale_box, center
-from automacro.screen.types import Point, BBox
+from automacro.screen.coordinates import center, scale_box
+from automacro.screen.types import BBox, Point
 
 try:
     import cv2  # noqa: F401

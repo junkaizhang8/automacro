@@ -3,8 +3,7 @@ import subprocess
 
 import pyautogui as pag
 
-from automacro.screen.types import Point, BBox, Size
-
+from automacro.screen.types import BBox, Point, Size
 
 _SCALE = 1.0
 
