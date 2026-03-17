@@ -43,9 +43,9 @@ class MouseListener:
         self._scroll_callback = on_scroll
 
         self._listener = Listener(
-            on_move=on_move,
+            on_move=self._on_move,
             on_click=self._on_click,
-            on_scroll=on_scroll,
+            on_scroll=self._on_scroll,
         )
 
         self._owns_thread_pool = thread_pool is None
