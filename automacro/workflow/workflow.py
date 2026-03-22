@@ -437,7 +437,7 @@ class Workflow:
 
         with self._cond:
             if self._state != WorkflowState.NOT_RUNNING:
-                self._ctx._resume()
+                self._pause()
                 self._state = WorkflowState.STOPPING
                 self._cond.notify_all()
 

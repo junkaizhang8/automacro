@@ -30,7 +30,7 @@ def test_check_interrupt_raises_interrupt_exception() -> None:
     ctx.check_interrupt()
 
 
-def test_check_interrupt_in_task() -> None:
+def test_pause_interrupts_task_with_check_interrupt() -> None:
     completed = False
     continue_event = threading.Event()
 
@@ -65,13 +65,15 @@ def test_check_interrupt_in_task() -> None:
     assert completed is True
 
 
-def test_wait_in_task() -> None:
+def test_pause_interrupts_task_with_wait() -> None:
     completed = False
+    continue_event = threading.Event()
 
     class WaitingTask(Task):
         def step(self, ctx: ExecutionContext) -> bool:
             nonlocal completed
 
+            continue_event.wait()
             ctx.wait(0.2)
             completed = True
             return True
@@ -85,6 +87,7 @@ def test_wait_in_task() -> None:
     # Pause the workflow, which will set the interrupt event and cause the
     # task to raise an InterruptException during the wait
     wf.pause()
+    continue_event.set()
 
     wait_until(lambda: wf.state == WorkflowState.PAUSED)
     assert completed is False
@@ -96,13 +99,15 @@ def test_wait_in_task() -> None:
     assert completed is True
 
 
-def test_sleep_in_task() -> None:
+def test_pause_does_not_interrupt_task_with_sleep() -> None:
     completed = False
+    continue_event = threading.Event()
 
     class SleepingTask(Task):
         def step(self, ctx: ExecutionContext) -> bool:
             nonlocal completed
 
+            continue_event.wait()
             ctx.sleep(0.2)
             completed = True
             return True
@@ -116,6 +121,92 @@ def test_sleep_in_task() -> None:
     # Pause the workflow, which should have no effect on the sleep since
     # it is not interruptible
     wf.pause()
+    continue_event.set()
+    wf.join()
+
+    assert wf.state == WorkflowState.NOT_RUNNING
+    assert completed is True
+
+
+def test_stop_interrupts_task_with_check_interrupt() -> None:
+    completed = False
+    continue_event = threading.Event()
+
+    class InterruptingTask(Task):
+        def step(self, ctx: ExecutionContext) -> bool:
+            nonlocal completed
+
+            continue_event.wait()
+            ctx.check_interrupt()
+            completed = True
+            return True
+
+    task = InterruptingTask()
+    wf = Workflow(task)
+    wf.start()
+
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
+
+    # Stop the workflow, which will set the interrupt event and cause the
+    # task to raise an InterruptException when it calls check_interrupt()
+    wf.stop()
+    continue_event.set()
+
+    wait_until(lambda: wf.state == WorkflowState.NOT_RUNNING)
+    assert completed is False
+
+
+def test_stop_interrupts_task_with_wait() -> None:
+    completed = False
+    continue_event = threading.Event()
+
+    class WaitingTask(Task):
+        def step(self, ctx: ExecutionContext) -> bool:
+            nonlocal completed
+
+            continue_event.wait()
+            ctx.wait(0.2)
+            completed = True
+            return True
+
+    task = WaitingTask()
+    wf = Workflow(task)
+    wf.start()
+
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
+
+    # Stop the workflow, which will set the interrupt event and cause the
+    # task to raise an InterruptException during the wait
+    wf.stop()
+    continue_event.set()
+
+    wait_until(lambda: wf.state == WorkflowState.NOT_RUNNING)
+    assert completed is False
+
+
+def test_stop_does_not_interrupt_task_with_sleep() -> None:
+    completed = False
+    continue_event = threading.Event()
+
+    class SleepingTask(Task):
+        def step(self, ctx: ExecutionContext) -> bool:
+            nonlocal completed
+
+            continue_event.wait()
+            ctx.sleep(0.2)
+            completed = True
+            return True
+
+    task = SleepingTask()
+    wf = Workflow(task)
+    wf.start()
+
+    wait_until(lambda: wf.state == WorkflowState.RUNNING)
+
+    # Stop the workflow, which should have no effect on the sleep since
+    # it is not interruptible
+    wf.stop()
+    continue_event.set()
     wf.join()
 
     assert wf.state == WorkflowState.NOT_RUNNING
