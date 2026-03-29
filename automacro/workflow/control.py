@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence, TypeAlias
-
-from typing_extensions import override
+from typing import Callable, Sequence, TypeAlias, override
 
 from automacro.workflow.base import ExecutionContext, Node, NodeLike, coerce_to_node
 

@@ -1,4 +1,4 @@
-from typing_extensions import override
+from typing import override
 
 from automacro.workflow.base import Node
 from automacro.workflow.context import ExecutionContext

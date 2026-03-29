@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, TypeAlias
-
-from typing_extensions import override
+from typing import Any, Callable, TypeAlias, override
 
 from automacro.workflow.context import ExecutionContext
 
