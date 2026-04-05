@@ -19,7 +19,12 @@ Automacro is currently not available on PyPI, but you can install it by cloning 
 
 ```bash
 git clone https://github.com/junkaizhang8/automacro.git
+
+# Install using pip
 pip install ./automacro
+
+# Or using uv
+uv add ./automacro
 ```
 
 ### Optional Dependencies
@@ -30,8 +35,14 @@ For computer vision and OCR support:
 # For OpenCV (image processing)
 pip install ./automacro[cv]
 
+# Or using uv
+uv add './automacro[cv]'
+
 # For Tesseract OCR
 pip install ./automacro[ocr-tesseract]
+
+# Or using uv
+uv add './automacro[ocr-tesseract]'
 ```
 
 _Note: For OCR, you must also have [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) installed on your system._
